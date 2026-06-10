@@ -6,11 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n SERVER,CLIENT -c blue,green \"pnpm -C packages/server dev\" \"pnpm -C packages/client dev\"",
-    "prod": "concurrently -n SERVER,CLIENT -c blue,green \"pnpm -C packages/server dev\" \"pnpm -C packages/client prod\"",
-    "build": "pnpm -C packages/shared build && pnpm -C packages/server build && pnpm -C packages/client build",
-    "start": "pnpm -C packages/server start",
-    "typecheck": "pnpm -C packages/shared typecheck && pnpm -C packages/server typecheck && pnpm -C packages/client typecheck",
+    "dev": "npx pnpm -C packages/shared build && npx pnpm -C packages/client dev",
+    "prod": "npx pnpm -C packages/client prod",
+    "build": "npx pnpm -C packages/shared build && npx pnpm -C packages/client build",
+    "typecheck": "npx pnpm -C packages/shared typecheck && npx pnpm -C packages/client typecheck",
     "lint": "eslint .",
     "format": "prettier -w ."
   },

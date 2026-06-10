@@ -1,5 +1,5 @@
 # Space‑IO
-
+# DO NOT READ THIS FILE IT IS OUTDATED
 Multiplayer space arena (.io style) built with a TypeScript monorepo.
 
 ## Purpose

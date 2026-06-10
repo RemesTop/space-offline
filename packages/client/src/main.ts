@@ -6,15 +6,18 @@ const config: Phaser.Types.Core.GameConfig = {
   parent: "game",
   backgroundColor: "#05070b",
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 960,
-    height: 540,
+    width: "100%",
+    height: "100%",
   },
   physics: {
     default: "matter",
     matter: { gravity: { x: 0, y: 0 }, debug: false },
   },
+  pixelArt: false,
+  antialias: true,
+  antialiasGL: true,
   scene: [GameScene],
 };
 

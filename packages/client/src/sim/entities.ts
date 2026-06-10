@@ -13,6 +13,8 @@ export const addPlayer = (
   pos: { x: number; y: number },
   socketId: string,
 ): Player => {
+  // Only bots (socketId is empty) can be giants
+  const isGiant = (!socketId) && Math.random() < 0.15;
   const p: Player = {
     id,
     socketId,
@@ -22,8 +24,9 @@ export const addPlayer = (
     vx: 0,
     vy: 0,
     r: PLAYER.radius,
-    hp: PLAYER.baseHP,
-    maxHp: PLAYER.baseHP,
+    isGiant,
+    hp: PLAYER.baseHP + (isGiant ? 50 : 0),
+    maxHp: PLAYER.baseHP + (isGiant ? 50 : 0),
     accel: PLAYER.baseAccel,
     maxSpeed: PLAYER.baseMaxSpeed,
     damage: BULLET.baseDamage,
@@ -34,6 +37,7 @@ export const addPlayer = (
     xp: 0,
     level: 1,
     xpToNext: xpForLevel(2),
+    aim: 0,
     pendingOffer: false,
     invulnUntil: 0,
     inputQueue: [],
@@ -84,14 +88,44 @@ export const processInputs = (world: World, now: number) => {
   for (const p of world.players.values()) {
     while (p.inputQueue.length) {
       const f = p.inputQueue.shift()!;
+      p.aim = f.aim;
       // thrust towards pointer direction scaled by accel
-      // Make movement more floaty: reduce acceleration
-      const floatyAccel = p.accel * 0.6;
+      // Make movement more floaty: reduce acceleration for bots
+      let accelMult = p.socketId ? 1.0 : 0.6;
+      const currentSpd = Math.hypot(p.vx, p.vy);
+      if (currentSpd > 10) {
+        const nx = p.vx / currentSpd;
+        const ny = p.vy / currentSpd;
+        const dot = nx * f.thrust.x + ny * f.thrust.y;
+        if (dot < 0.2) {
+          accelMult = 2.0; // Higher acceleration when turning or braking
+        }
+      }
+      
+      let floatyAccel = p.accel * accelMult;
+      
+      const aimDx = Math.cos(f.aim);
+      const aimDy = Math.sin(f.aim);
+      const thrustDotAim = f.thrust.x * aimDx + f.thrust.y * aimDy;
+      const isReversing = thrustDotAim < -0.2;
+      
+      if (isReversing && currentSpd > p.maxSpeed * 0.4) {
+        // If we are thrusting in reverse and already going fast, don't accelerate further
+        // unless the thrust is opposing our current velocity
+        const thrustDotVel = f.thrust.x * p.vx + f.thrust.y * p.vy;
+        if (thrustDotVel > 0) {
+          floatyAccel = 0;
+        }
+      }
+
       p.vx += clamp(f.thrust.x, -1, 1) * floatyAccel * (f.dtMs / 1000);
       p.vy += clamp(f.thrust.y, -1, 1) * floatyAccel * (f.dtMs / 1000);
+      
       const spd = Math.hypot(p.vx, p.vy);
-      if (spd > p.maxSpeed) {
-        const s = p.maxSpeed / (spd || 1);
+      let currentMaxSpeed = p.maxSpeed;
+
+      if (spd > currentMaxSpeed) {
+        const s = currentMaxSpeed / (spd || 1);
         p.vx *= s;
         p.vy *= s;
       }
@@ -137,7 +171,6 @@ const sendOffer = (world: World, p: Player) => {
     return;
   }
 
-  const socket = world.io?.sockets.sockets.get(p.socketId);
   if (!p.socketId) {
     // Bot: pick a choice automatically (heuristic: lowest current level; fallback first)
     const scored = choices.map(c => {
@@ -156,7 +189,7 @@ const sendOffer = (world: World, p: Player) => {
     applyLevelChoice(world, p.id, { family: pick.family, tier: pick.tier, alt: pick.alt });
     return;
   }
-  socket?.emit("event", { type: "LevelUpOffer", choices });
+  world.io?.emitEvent(p.socketId, { type: "LevelUpOffer", choices });
 };
 
 export const applyLevelChoice = (
@@ -173,8 +206,8 @@ export const applyLevelChoice = (
     // Check if Hull is already at max level (5)
     if (p.powerupLevels.Hull < 5) {
       p.powerupLevels.Hull++;
-      p.maxHp += 20;
-      p.hp = Math.min(p.maxHp, p.hp + 20);
+      p.maxHp += 40;
+      p.hp = Math.min(p.maxHp, p.hp + 40);
     }
   } else if (choice.family === "Damage" && choice.tier) {
     if (p.powerupLevels.Damage < 5) {
@@ -200,14 +233,12 @@ export const applyLevelChoice = (
   } else if (choice.family === "Radar" && choice.tier) {
     if (p.powerupLevels.Radar < 5) {
       p.powerupLevels.Radar++;
-      p.shield += 10;
-      p.hp = Math.min(p.maxHp + p.shield, p.hp + 10);
+      // Radar now increases turn speed (handled in bots.ts and GameScene.ts) and zoom
     }
   }
 
   p.pendingOffer = false;
-  const socket = world.io?.sockets.sockets.get(p.socketId);
-  socket?.emit("event", {
+  world.io?.emitEvent(p.socketId, {
     type: "LevelUpApplied",
     updated: {
       level: p.level,
@@ -240,7 +271,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "Hull" as const,
       tier: nextLevel,
       label: `Hull Lv${nextLevel}`,
-      desc: "+20 Max HP",
+      desc: "+40 Max HP",
     });
   }
 
@@ -335,23 +366,26 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     angleOffset = 0,
     pierce = false,
   ) => {
-    const id = nanoid();
-    const vx = Math.cos(aim + angleOffset) * speed;
-    const vy = Math.sin(aim + angleOffset) * speed;
-    const muzzleDist = p.r + radius - 50; // spawn at ship nose
-    const b: Bullet = {
-      id,
-      ownerId: p.id,
-      x: p.x + Math.cos(aim + angleOffset) * muzzleDist,
-      y: p.y + Math.sin(aim + angleOffset) * muzzleDist,
-      vx,
-      vy,
-      r: radius,
-      damage,
-      ttl,
-      pierce,
-    };
-    world.bullets.set(id, b);
+    const offsets = p.isGiant ? [angleOffset - 0.1, angleOffset + 0.1] : [angleOffset];
+    for (const off of offsets) {
+      const id = nanoid();
+      const vx = Math.cos(aim + off) * speed;
+      const vy = Math.sin(aim + off) * speed;
+      const muzzleDist = p.r + radius - 50; // spawn at ship nose
+      const b: Bullet = {
+        id,
+        ownerId: p.id,
+        x: p.x + Math.cos(aim + off) * muzzleDist,
+        y: p.y + Math.sin(aim + off) * muzzleDist,
+        vx,
+        vy,
+        r: radius,
+        damage,
+        ttl,
+        pierce,
+      };
+      world.bullets.set(id, b);
+    }
   };
 
   if (p.altFire === "railgun") {
@@ -475,8 +509,7 @@ export const collectPickups = (world: World) => {
         world.pickups.delete(k);
         if (pu.type === "xp") giveXP(world, p, pu.value);
         else p.hp = Math.min(p.maxHp + p.shield, p.hp + pu.value);
-        const sock = world.io?.sockets.sockets.get(p.socketId);
-        sock?.emit("event", {
+        world.io?.emitEvent(p.socketId, {
           type: "Pickup",
           playerId: p.id,
           pickupId: pu.id,

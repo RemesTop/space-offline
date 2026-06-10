@@ -17,6 +17,10 @@ export class NamePrompt {
     modal.innerHTML = `
       <div class="start-header">
         <h1 class="start-title">Space IO</h1>
+        <div class="start-controls" style="margin-top: 12px; font-size: 13px; color: #8aa2c7; line-height: 1.6;">
+          <span style="display:inline-block; margin:0 8px;">⌨️ <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">WASD</kbd> to move</span>
+          <span style="display:inline-block; margin:0 8px;">🖱️ <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Space</kbd> / <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Mouse 1</kbd> to shoot</span>
+        </div>
       </div>
       <form class="name-form" autocomplete="off">
         <label class="input-group">
@@ -30,7 +34,9 @@ export class NamePrompt {
           <button type="submit" id="go" class="btn primary" disabled>Play ▶</button>
         </div>
       </form>
-      <div class="start-hint">Press Enter to launch instantly.</div>
+      <div class="start-hint">
+        <em>Note: This demo is currently singleplayer only.</em>
+      </div>
     `;
     overlay.appendChild(modal);
     document.body.appendChild(overlay);

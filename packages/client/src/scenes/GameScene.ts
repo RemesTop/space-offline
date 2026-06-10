@@ -19,8 +19,10 @@ const SELF_TINT = 0x8ac6ff;
 const OTHER_TINT = 0x4aa3ff;
 const SHIP_TEX_KEY = "ship_png"; // loaded from packages/assets/spaceship.png
 
+let globalNet: Net | null = null;
+
 export default class GameScene extends Phaser.Scene {
-  net = new Net();
+  net!: Net;
 
   hud!: HUD;
   levelModal!: LevelUpModal;
@@ -45,6 +47,9 @@ export default class GameScene extends Phaser.Scene {
   // Track ships playing death animations to prevent premature cleanup
   dyingShips = new Set<string>();
 
+  // Track explosion containers so they stay pinned to world coordinates
+  explosionContainers = new Set<Phaser.GameObjects.Container>();
+
   wells: WellState[] = [];
   debugWellsOn = true;
   debugFullView = false; // New debug flag for full arena view
@@ -62,14 +67,15 @@ export default class GameScene extends Phaser.Scene {
   boundsGfx!: Phaser.GameObjects.Graphics;
 
   // pickup interpolation (snapshot to snapshot)
-  pickPrev = new Map<string, { x: number; y: number; type: "xp" | "hp" }>();
-  pickCurr = new Map<string, { x: number; y: number; type: "xp" | "hp" }>();
+  pickPrev = new Map<string, { x: number; y: number; type: "xp" | "hp" | "xp-giant" }>();
+  pickCurr = new Map<string, { x: number; y: number; type: "xp" | "hp" | "xp-giant" }>();
   pickAlpha = 1;
 
   // input state
   seq = 0;
   lastInputAt = 0;
-  aim = 0;
+  heading = 0; // ship facing direction (radians) — controlled by A/D
+  aim = 0; // aim direction for bullets — equals heading in Asteroids mode
   thrust = { x: 0, y: 0 };
   fireHeld = false;
   altFireHeld = false;
@@ -80,6 +86,10 @@ export default class GameScene extends Phaser.Scene {
 
   // input model
   space!: Phaser.Input.Keyboard.Key; // Spacebar to fire
+  keyW!: Phaser.Input.Keyboard.Key;
+  keyA!: Phaser.Input.Keyboard.Key;
+  keyS!: Phaser.Input.Keyboard.Key;
+  keyD!: Phaser.Input.Keyboard.Key;
   alwaysThrust = false; // Desktop: always thrust toward pointer
   isThrusting = false; // Mobile: thrust while touching
   touchFireHeld = false; // Mobile FIRE button (toggle state)
@@ -91,6 +101,10 @@ export default class GameScene extends Phaser.Scene {
   gameMusic!: Phaser.Sound.BaseSound; // in-game background
   playerName = '';
 
+  rockSprites = new Map<string, Phaser.GameObjects.Sprite>();
+
+  audioCtx?: AudioContext;
+
   constructor() {
     super("Game");
   }
@@ -98,7 +112,7 @@ export default class GameScene extends Phaser.Scene {
   // Calculate camera zoom based on radar level
   updateCameraZoom() {
     if (this.debugFullView) return; // Don't interfere with debug view
-    const baseZoom = 0.9; // Base zoom level
+    const baseZoom = 1.4; // Base zoom level
     const zoomOutPerLevel = 0.05; // How much to zoom out per radar level
     const calculatedZoom = baseZoom - (this.radarLevel * zoomOutPerLevel);
     this.cameras.main.setZoom(calculatedZoom);
@@ -142,10 +156,12 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("SATURNUS", new URL("../assets/planeetat/SATURNUS.png", import.meta.url).toString());
     this.load.image("SUN", new URL("../assets/planeetat/SUN.png", import.meta.url).toString());
     this.load.image("VENUS", new URL("../assets/planeetat/VENUS.png", import.meta.url).toString());
+    // Preload rock
+    this.load.image("rock", new URL("../assets/rock.png", import.meta.url).toString());
 
-    // Audio assets
-    this.load.audio("menuMusic", new URL("../assets/sounds/space-ambient-351305.mp3", import.meta.url).toString());
-    this.load.audio("gameMusic", new URL("../assets/sounds/ambient-space-fantasy-music-for-mindful-escapism-141536.mp3", import.meta.url).toString());
+    // Audio assets - swapped back according to request
+    this.load.audio("menuMusic", new URL("../assets/sounds/ambient-space-fantasy-music-for-mindful-escapism-141536.mp3", import.meta.url).toString());
+    this.load.audio("gameMusic", new URL("../assets/sounds/space-ambient-351305.mp3", import.meta.url).toString());
   }
 
   async create(data?: { playerName?: string }) {
@@ -167,8 +183,11 @@ export default class GameScene extends Phaser.Scene {
     this.planetSprites.forEach(s => s.destroy());
     this.planetSprites = new Map();
 
-    // Fresh Net instance every restart
-    this.net = new Net();
+    // Use global Net instance to persist simulation state across respawns
+    if (!globalNet) {
+      globalNet = new Net();
+    }
+    this.net = globalNet;
 
     (window as any).net = this.net;
     this.cameras.main.setBackgroundColor('#05070b');
@@ -236,28 +255,20 @@ export default class GameScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown-I", () => {
       this.debugFullView = !this.debugFullView;
       if (this.debugFullView) {
-        // Set camera to show entire arena
-        const scaleX = this.scale.width / this.worldW;
-        const scaleY = this.scale.height / this.worldH;
-        const scale = Math.min(scaleX, scaleY) * 0.9; // 0.9 for some padding
-        this.cameras.main.setZoom(scale);
-
-        // Center camera on arena center, but offset by player position to maintain relative positioning
-        const youI = this.interp.get(this.net.youId || "") ?? this.interp.current.get(this.net.youId || "");
-        if (youI) {
-          // Calculate offset from arena center to keep player entities in correct relative positions
-          const arenaCenterX = this.worldW / 2;
-          const arenaCenterY = this.worldH / 2;
-          this.cameras.main.centerOn(arenaCenterX - youI.x, arenaCenterY - youI.y);
-        } else {
-          this.cameras.main.centerOn(0, 0);
-        }
+        this.cameras.main.setZoom(Math.min(this.scale.width / this.worldW, this.scale.height / this.worldH));
+        this.cameras.main.centerOn(this.worldW / 2, this.worldH / 2);
       } else {
-        // Reset camera to normal view - center on screen center with radar-based zoom
-        this.updateCameraZoom(); // Use radar-based zoom calculation
-        this.cameras.main.centerOn(this.scale.width / 2, this.scale.height / 2);
+        this.updateCameraZoom();
       }
     });
+
+    if (!this.audioCtx) {
+      try {
+        this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } catch (e) {
+        console.warn("Web Audio API not supported", e);
+      }
+    }
 
     // Touch FIRE button (mobile)
     this.touchFireBtn = document.createElement("div");
@@ -283,6 +294,12 @@ export default class GameScene extends Phaser.Scene {
     this.space = this.input.keyboard?.addKey(
       Phaser.Input.Keyboard.KeyCodes.SPACE,
     ) as Phaser.Input.Keyboard.Key;
+
+    // WASD Movement
+    this.keyW = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.W) as Phaser.Input.Keyboard.Key;
+    this.keyA = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.A) as Phaser.Input.Keyboard.Key;
+    this.keyS = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.S) as Phaser.Input.Keyboard.Key;
+    this.keyD = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.D) as Phaser.Input.Keyboard.Key;
 
     // Debug key for testing XP - T key gives +25 XP
     this.input.keyboard?.on("keydown-T", () => {
@@ -347,7 +364,7 @@ export default class GameScene extends Phaser.Scene {
         // Create explosion effect at death location
         this.createExplosion(e.x, e.y);
         // Make the victim ship fade/blink
-        this.makeShipDeathEffect(e.victimId);
+        this.makeShipDeathEffect(e.victimId, e.x, e.y);
         // If YOU died, end run (only once)
         if (!this.gameEnded && e.victimId === this.net.youId) {
           this.gameEnded = true;
@@ -360,13 +377,17 @@ export default class GameScene extends Phaser.Scene {
             distance: this.distanceTraveled,
             maxSpeed: this.maxSpeedSeen,
           };
-          this.gameOverModal.show(stats);
-          // Stop sending inputs
-          this.net.socket.disconnect();
           // Wait for user to click respawn -> reload page to get fresh session
-          this.gameOverModal.waitRespawn().then(() => {
-            this.handleRespawn();
-          });
+          setTimeout(() => {
+            document.body.classList.add("game-over");
+            this.gameOverModal.show(stats);
+            // Stop sending inputs
+            this.net.socket.disconnect();
+            
+            this.gameOverModal.waitRespawn().then(() => {
+              this.handleRespawn();
+            });
+          }, 1500); // 1.5s delay to watch explosion
           this.fadeToMenuMusic();
         }
       } else if (e.type === 'LevelUpOffer') {
@@ -422,6 +443,34 @@ export default class GameScene extends Phaser.Scene {
       ship.ring.setDepth(1004);
       ship.setTint(SELF_TINT);
       this.ships.set(youId, ship);
+    }
+  }
+
+  playSynthSound(type: "shoot" | "death") {
+    if (!this.audioCtx) return;
+    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    const t = this.audioCtx.currentTime;
+    const osc = this.audioCtx.createOscillator();
+    const gain = this.audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(this.audioCtx.destination);
+
+    if (type === "shoot") {
+      osc.type = "square";
+      osc.frequency.setValueAtTime(400, t);
+      osc.frequency.exponentialRampToValueAtTime(100, t + 0.1);
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+      osc.start(t);
+      osc.stop(t + 0.1);
+    } else {
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(100, t);
+      osc.frequency.exponentialRampToValueAtTime(10, t + 0.5);
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+      osc.start(t);
+      osc.stop(t + 0.5);
     }
   }
 
@@ -553,31 +602,74 @@ export default class GameScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
+    const dt = delta / 1000; // seconds
 
-    // Compute aim toward current pointer each frame (camera fixed at center)
-    const pointer = this.input.activePointer;
-    this.aim = Math.atan2(pointer.worldY - cy, pointer.worldX - cx);
+    const isDesktop = this.sys.game.device.os.desktop;
 
-    // If mouse is near the ship (center), stop acceleration
-    const mouseDist = Math.hypot(pointer.worldX - cx, pointer.worldY - cy);
-    const stopRadius = 120; // px, increased from 80 for bigger deadzone
+    if (!isDesktop) {
+      // Mobile logic: follow pointer
+      const pointer = this.input.activePointer;
+      this.heading = Math.atan2(pointer.worldY - cy, pointer.worldX - cx);
+      this.aim = this.heading;
+      const mouseDist = Math.hypot(pointer.worldX - cx, pointer.worldY - cy);
+      const stopRadius = 120;
 
-    if ((this.alwaysThrust || this.isThrusting) && mouseDist > stopRadius) {
-      this.thrust = { x: Math.cos(this.aim), y: Math.sin(this.aim) };
+      if ((this.alwaysThrust || this.isThrusting) && mouseDist > stopRadius) {
+        this.thrust = { x: Math.cos(this.heading), y: Math.sin(this.heading) };
+      } else {
+        this.thrust = { x: 0, y: 0 };
+      }
     } else {
-      this.thrust = { x: 0, y: 0 };
+      // Desktop: Asteroids-style tank controls
+      // Turn speed: base 4.0 rad/s + 0.5 per radar level
+      const turnSpeed = 4.0 + (this.radarLevel * 0.5);
+
+      // A/D rotate heading
+      if (this.keyA?.isDown) this.heading -= turnSpeed * dt;
+      if (this.keyD?.isDown) this.heading += turnSpeed * dt;
+
+      // Normalize heading to [-PI, PI]
+      while (this.heading > Math.PI) this.heading -= Math.PI * 2;
+      while (this.heading < -Math.PI) this.heading += Math.PI * 2;
+
+      // W = forward thrust along heading, S = reverse
+      if (this.keyW?.isDown) {
+        this.thrust = { x: Math.cos(this.heading), y: Math.sin(this.heading) };
+      } else if (this.keyS?.isDown) {
+        this.thrust = { x: -Math.cos(this.heading) * 0.5, y: -Math.sin(this.heading) * 0.5 };
+      } else {
+        this.thrust = { x: 0, y: 0 };
+      }
+
+      // Aim = heading (bullets fire forward from ship nose)
+      this.aim = this.heading;
     }
 
-    // Control thruster visibility based on thrust and mouse distance
+    // Control thruster visibility (show when W is held on desktop)
     const myShip = this.ships.get(this.net.youId!);
     if (myShip) {
-      const isThrusting = (this.thrust.x !== 0 || this.thrust.y !== 0) && mouseDist > stopRadius;
-      myShip.setThrusterVisible(isThrusting);
+      let showThruster = false;
+      if (isDesktop) {
+        showThruster = this.keyW?.isDown ?? false;
+      } else {
+        const pointer = this.input.activePointer;
+        const mouseDist = Math.hypot(pointer.worldX - cx, pointer.worldY - cy);
+        showThruster = (this.thrust.x !== 0 || this.thrust.y !== 0) && mouseDist > 120;
+      }
+      myShip.setThrusterVisible(showThruster);
     }
 
-    // Fire: Spacebar, mobile FIRE button, or left mouse button
+    const oldFire = this.fireHeld;
     const spaceDown = this.space?.isDown ?? false;
     this.fireHeld = spaceDown || this.touchFireHeld || this.altFireHeld;
+
+    // Play shoot sound locally when firing begins
+    if (this.fireHeld && !oldFire) {
+      const myShip = this.ships.get(this.net.youId!);
+      if (myShip) {
+        this.playSynthSound("shoot");
+      }
+    }
 
     // Send input at ~40 Hz
     const dtMs = delta;
@@ -597,7 +689,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Interpolated "you" for smooth rendering/camera base
-    const youI =
+    let youI =
       this.interp.get(this.net.youId || "") ?? this.interp.current.get(this.net.youId || "");
 
     if (youI) {
@@ -611,29 +703,71 @@ export default class GameScene extends Phaser.Scene {
       // Other players relative to interpolated you
       for (const id of this.interp.ids()) {
         const e = this.interp.get(id)!;
-        if (e.kind !== "player" || id === this.net.youId) continue;
+        if (e.kind !== "player") continue;
 
         const ship = this.ships.get(id);
         if (!ship) continue;
 
         ship.setPosition(cx + (e.x - youI.x), cy + (e.y - youI.y));
 
+        if (!e.socketId && e.name) {
+          ship.setNameTag(e.name);
+        }
+
+        // Name tag coloring
+        if (ship.nameTag) {
+          if ((e as any).isGiant || ((e as any).level && (e as any).level > 5)) {
+            ship.nameTag.setColor("#ff0000");
+          } else {
+            ship.nameTag.setColor("#ffffff");
+          }
+        }
+
+        if (id === this.net.youId) {
+          youI = e;
+        } else {
+          // Apply other ships' rotation instantly for bots (with interpolation, use aim)
+          if ((e as any).aim !== undefined) {
+            ship.setRotation((e as any).aim);
+          } else {
+            const spd = Math.hypot(e.vx, e.vy);
+            if (spd > 0.001) {
+              ship.setRotation(Math.atan2(e.vy, e.vx));
+            }
+          }
+        }
+
         // Face their movement direction (guard tiny velocities)
         const spd = Math.hypot(e.vx, e.vy);
         if (spd > 0.001) {
-          ship.setRotation(Math.atan2(e.vy, e.vx));
           // Show thruster when moving fast enough
           ship.setThrusterVisible(spd > 50); // Show thruster if speed > 50 units
         } else {
           ship.setThrusterVisible(false);
         }
+
+        // Handle invulnerability blinking
+        if ((e as any).isInvuln) {
+          const alpha = (Date.now() % 200 < 100) ? 0.3 : 0.8;
+          ship.setAlpha(alpha);
+        } else {
+          ship.setAlpha(1);
+        }
       }
 
-      // Your ship stays centered and faces aim
-      const myShip = this.ships.get(this.net.youId!);
-      if (myShip) {
-        myShip.setPosition(cx, cy);
-        myShip.setRotation(this.aim);
+      // Your ship stays centered and faces heading
+      const myShip2 = this.ships.get(this.net.youId!);
+      if (myShip2) {
+        myShip2.setPosition(cx, cy);
+        myShip2.setRotation(this.heading);
+        
+        // Handle invulnerability blinking for your own ship
+        if ((youI as any).isInvuln) {
+          const alpha = (Date.now() % 200 < 100) ? 0.3 : 0.8;
+          myShip2.setAlpha(alpha);
+        } else {
+          myShip2.setAlpha(1);
+        }
       }
 
       // Parallax + HUD from interpolated you (dt for framerate independence)
@@ -668,8 +802,6 @@ export default class GameScene extends Phaser.Scene {
         this.pickups.place(id, cx + (x - youI.x), cy + (y - youI.y));
       }
     }
-
-    // Removed client-side planet movement prediction & correction; rely on server authoritative well positions
 
     // Camera anchor for debug drawers
     if (youI) {
@@ -706,6 +838,22 @@ export default class GameScene extends Phaser.Scene {
 
     // Update bullets movement
     this.bullets.update(delta / 1000);
+
+    // Update explosion containers and dying ships
+    if (youI) {
+      for (const id of this.dyingShips) {
+        const ship = this.ships.get(id);
+        if (ship && (ship as any).worldX !== undefined && (ship as any).worldY !== undefined) {
+          ship.setPosition(cx + ((ship as any).worldX - youI.x), cy + ((ship as any).worldY - youI.y));
+        }
+      }
+      for (const container of this.explosionContainers) {
+        container.setPosition(
+          cx + (container.getData('worldX') - youI.x),
+          cy + (container.getData('worldY') - youI.y)
+        );
+      }
+    }
   }
 
   /** Ensure planet sprites exist and update their positions */
@@ -760,7 +908,6 @@ export default class GameScene extends Phaser.Scene {
 
   /** Create explosion effect at world coordinates */
   createExplosion(worldX: number, worldY: number) {
-    // Convert world coordinates to screen coordinates
     const youI = this.interp.get(this.net.youId || "");
     if (!youI) return;
 
@@ -768,6 +915,11 @@ export default class GameScene extends Phaser.Scene {
     const cy = this.scale.height / 2;
     const sx = cx + (worldX - youI.x);
     const sy = cy + (worldY - youI.y);
+
+    const container = this.add.container(sx, sy).setDepth(1000);
+    container.setData('worldX', worldX);
+    container.setData('worldY', worldY);
+    this.explosionContainers.add(container);
 
     // Create explosion particles
     const particleCount = 12;
@@ -777,55 +929,57 @@ export default class GameScene extends Phaser.Scene {
       const angle = (i / particleCount) * Math.PI * 2;
       const distance = 20 + Math.random() * explosionRadius;
       
-      // Create particle
-      const particle = this.add.circle(sx, sy, 3 + Math.random() * 4, 0xff6600)
-        .setDepth(1000);
+      const particle = this.add.circle(0, 0, 3 + Math.random() * 4, 0xff6600);
+      container.add(particle);
       
-      // Animate particle
       this.tweens.add({
         targets: particle,
-        x: sx + Math.cos(angle) * distance,
-        y: sy + Math.sin(angle) * distance,
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance,
         alpha: 0,
         scale: 0.3,
-        duration: 800 + Math.random() * 500, // Increased from 500+300 to 800+500
-        ease: 'Power2',
-        onComplete: () => particle.destroy()
+        duration: 800 + Math.random() * 500,
+        ease: 'Power2'
       });
     }
 
     // Create bright flash
-    const flash = this.add.circle(sx, sy, 8, 0xffaa00)
-      .setDepth(1001);
+    const flash = this.add.circle(0, 0, 8, 0xffaa00);
+    container.add(flash);
     
     this.tweens.add({
       targets: flash,
       scale: 4,
       alpha: 0,
-      duration: 400, // Increased from 200 to 400
-      ease: 'Power2',
-      onComplete: () => flash.destroy()
+      duration: 400,
+      ease: 'Power2'
     });
 
     // Create shockwave ring
-    const ring = this.add.circle(sx, sy, 5, 0xffffff, 0)
-      .setStrokeStyle(2, 0xff8800)
-      .setDepth(999);
+    const ring = this.add.circle(0, 0, 5, 0xffffff, 0)
+      .setStrokeStyle(2, 0xff8800);
+    container.add(ring);
     
     this.tweens.add({
       targets: ring,
       radius: explosionRadius,
       alpha: 0,
-      duration: 700, // Increased from 400 to 700
+      duration: 700,
       ease: 'Power2',
-      onComplete: () => ring.destroy()
+      onComplete: () => {
+        container.destroy();
+        this.explosionContainers.delete(container);
+      }
     });
   }
 
   /** Make ship fade and blink during death */
-  makeShipDeathEffect(victimId: string) {
+  makeShipDeathEffect(victimId: string, worldX: number, worldY: number) {
     const ship = this.ships.get(victimId);
     if (!ship) return;
+
+    (ship as any).worldX = worldX;
+    (ship as any).worldY = worldY;
 
     // Mark ship as dying to prevent cleanup during animation
     this.dyingShips.add(victimId);
@@ -834,42 +988,41 @@ export default class GameScene extends Phaser.Scene {
     ship.setThrusterVisible(false);
 
     // Create a blinking/fading effect
-    const shipParts = [ship.body, ship.wings, ship.window, ship.point, ship.weapon, ship.ring];
-    
+    const shipParts = [
+      (ship as any).body,
+      (ship as any).wings,
+      (ship as any).window,
+      (ship as any).point,
+      (ship as any).weapon,
+      (ship as any).ring,
+      (ship as any).thruster,
+      (ship as any).nameTag
+    ].filter(Boolean);
     // First, make the ship blink rapidly
     this.tweens.add({
       targets: shipParts,
       alpha: 0.2,
-      duration: 120, // Increased from 80 to 120
+      duration: 120,
       yoyo: true,
-      repeat: 5, // Increased from 3 to 5 (6 blinks total)
+      repeat: 5, // 6 blinks total
       ease: 'Power2',
       onComplete: () => {
-        // After blinking, fade out completely
+        // After blinking, fade out completely (NO scale change — that causes the "flash huge" bug)
         this.tweens.add({
           targets: shipParts,
           alpha: 0,
-          scale: 0.7, // Slightly shrink while fading
-          duration: 600, // Increased from 300 to 600
+          duration: 600,
           ease: 'Power2',
           onComplete: () => {
             // Remove from dying ships set and clean up
             this.dyingShips.delete(victimId);
-            // If the ship is no longer in the active ships (respawned), destroy the old one
             if (this.ships.has(victimId)) {
               const currentShip = this.ships.get(victimId);
               if (currentShip === ship) {
-                // This is still the same ship object, so it hasn't respawned yet
                 ship.destroy();
                 this.ships.delete(victimId);
               }
             }
-            // Reset alpha and scale in case ship respawns
-            shipParts.forEach(part => {
-              if (part && !part.scene) return; // Skip if destroyed
-              part.setAlpha(1);
-              part.setScale(part.scaleX > 0 ? 0.03 : -0.03); // Restore original scale
-            });
           }
         });
       }
@@ -877,6 +1030,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private handleRespawn() {
+    // Hide level up modal in case it was open
+    this.levelModal.hide();
+    // Clear any pending level-up offer so it doesn't carry over
+    if (this.net.youId) {
+      const player = this.net.world.players.get(this.net.youId);
+      if (player) player.pendingOffer = false;
+    }
     // Stop sounds to avoid overlap
     try { this.menuMusic?.stop(); } catch {}
     try { this.gameMusic?.stop(); } catch {}

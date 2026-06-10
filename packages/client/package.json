@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@game/shared": "workspace:*",
-    "phaser": "^3.80.1",
-    "socket.io-client": "^4.7.5"
+    "nanoid": "^5.1.11",
+    "phaser": "^3.80.1"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

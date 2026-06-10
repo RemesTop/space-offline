@@ -21,6 +21,12 @@ export default class Ship {
   private _noseR: number;
   private _lastRot = 0;
   private _scale: number;
+  private _originalTint = 0xffffff;
+
+  // Added properties for name tag and death pinning
+  worldX?: number;
+  worldY?: number;
+  nameTag?: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, opts: ShipOpts = {}) {
     this.scene = scene;
@@ -61,6 +67,18 @@ export default class Ship {
     }
   }
 
+  setNameTag(name: string) {
+    if (!this.nameTag) {
+      this.nameTag = this.scene.add.text(0, 0, name, {
+        fontSize: '12px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+      }).setOrigin(0.5, 1).setDepth(2000).setAlpha(0.6);
+    } else {
+      this.nameTag.setText(name);
+    }
+  }
+
   setPosition(x: number, y: number) {
     this.body.setPosition(x, y);
     this.wings.setPosition(x, y);
@@ -68,14 +86,22 @@ export default class Ship {
     this.point.setPosition(x, y);
     this.weapon.setPosition(x, y);
     this.ring.setPosition(x, y);
-    
+
+    if (this.nameTag) {
+      // Position nametag slightly above the ship
+      this.nameTag.setPosition(x, y - (this.body.width * this._scale * 0.5) - 20);
+    }
+
     // Position thruster behind the ship based on rotation
-    const thrusterDistance = 15; // Distance behind the ship center (increased from 45)
-    const angle = this._lastRot + Math.PI; // Opposite direction of ship's movement
-    const thrusterX = x + Math.cos(angle) * thrusterDistance;
-    const thrusterY = y + Math.sin(angle) * thrusterDistance;
+    this.updateThrusterPosition(this._lastRot);
+  }
+
+  private updateThrusterPosition(rot: number) {
+    const thrusterDistance = 15; // Distance behind the ship center
+    const angle = rot + Math.PI; // Opposite direction of ship's movement
+    const thrusterX = this.body.x + Math.cos(angle) * thrusterDistance;
+    const thrusterY = this.body.y + Math.sin(angle) * thrusterDistance;
     this.thruster.setPosition(thrusterX, thrusterY);
-  // Removed nose sync
   }
 
   setRotation(rad: number) {
@@ -87,7 +113,8 @@ export default class Ship {
     this.point.setRotation(finalRot);
     this.weapon.setRotation(finalRot);
     this.thruster.setRotation(finalRot);
-  // Removed nose sync
+    
+    this.updateThrusterPosition(rad);
   }
 
   setInvuln(on: boolean) {
@@ -96,6 +123,11 @@ export default class Ship {
   }
 
   setTint(color: number) {
+    this._originalTint = color;
+    this._applyTint(color);
+  }
+
+  private _applyTint(color: number) {
     this.body.setTint(color);
     this.wings.setTint(color);
     this.window.setTint(color);
@@ -104,8 +136,23 @@ export default class Ship {
     this.thruster.setTint(color);
   }
 
+  playHitEffect() {
+    this._applyTint(0xffffff); // Flash white
+    this.scene.time.delayedCall(80, () => this._applyTint(this._originalTint));
+  }
+
   setThrusterVisible(visible: boolean) {
     this.thruster.setVisible(visible);
+  }
+
+  setAlpha(alpha: number) {
+    this.body.setAlpha(alpha);
+    this.wings.setAlpha(alpha);
+    this.window.setAlpha(alpha);
+    this.point.setAlpha(alpha);
+    this.weapon.setAlpha(alpha);
+    this.thruster.setAlpha(alpha);
+    if (this.nameTag) this.nameTag.setAlpha(alpha * 0.6);
   }
 
   destroy() {
@@ -116,7 +163,9 @@ export default class Ship {
     this.point.destroy();
     this.thruster.destroy();
     this.ring.destroy();
+    if (this.nameTag) this.nameTag.destroy();
   }
+
 
   // Update ship textures based on player stats
   updateTextures(stats: {
@@ -126,33 +175,50 @@ export default class Ship {
     accel: number;
     magnetRadius: number;
     fireCooldownMs: number;
+    hullLevel?: number;
+    isGiant?: boolean;
   }) {
-    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs } = stats;
-    
+    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, isGiant } = stats;
+
     // Body texture based on HP - changes at level 2 (120HP), then level 5 (140HP)
     // Level 1: 100HP (texture 0), Level 2+: 120HP+ (texture 1), Level 5+: 140HP+ (texture 2)
     const bodyLevel = maxHp <= 125 ? 0 : maxHp < 140 ? 1 : 2;
     this.body.setTexture(`raketti/body${bodyLevel}.png`);
-    
+
     // Weapon texture based on fire cooldown - changes at level 2, then level 5
     // Level 1: 220ms (texture 0), Level 2+: <220ms (texture 1), Level 5+: much lower (texture 2)
     const weaponLevel = fireCooldownMs >= 220 ? 0 : fireCooldownMs > 180 ? 1 : 2;
     this.weapon.setTexture(`raketti/weapon${weaponLevel}.png`);
-    
+
     // Point texture based on base damage - changes at level 2, then level 5
     // Level 1: 12 damage (texture 0), Level 2+: 16+ damage (texture 1), Level 5+: 24+ damage (texture 2)
     const pointLevel = damage <= 12 ? 0 : damage < 24 ? 1 : 2;
     this.point.setTexture(`raketti/point${pointLevel}.png`);
-    
+
     // Wings texture based on acceleration - changes at level 2, then level 5
     // Level 1: 700 accel (texture 0), Level 2+: 740+ accel (texture 1), Level 5+: 820+ accel (texture 2)
     const wingsLevel = accel <= 700 ? 0 : accel < 820 ? 1 : 2;
     this.wings.setTexture(`raketti/wings${wingsLevel}.png`);
-    
+
     // Window texture based on magnet radius - changes at level 2, then level 5
     // Level 1: 100 radius (texture 0), Level 2+: 130+ radius (texture 1), Level 5+: 190+ radius (texture 2)
     const windowLevel = magnetRadius <= 100 ? 0 : magnetRadius < 190 ? 1 : 2;
     this.window.setTexture(`raketti/window${windowLevel}.png`);
+
+    // Scale ship based on hull level and giant status
+    if (hullLevel !== undefined) {
+      const giantMultiplier = isGiant ? 1.2 : 1.0;
+      const newScale = this._scale * giantMultiplier * (1 + 0.15 * hullLevel + 0.06 * wingsLevel);
+      this.body.setScale(newScale);
+      this.wings.setScale(newScale);
+      this.window.setScale(newScale);
+      this.point.setScale(newScale);
+      this.weapon.setScale(newScale);
+      this.thruster.setScale(newScale);
+
+      // Update nose relative position based on new scale
+      this._noseR = this.body.width * newScale * 0.48;
+    }
   }
 
   // Removed nose sync method

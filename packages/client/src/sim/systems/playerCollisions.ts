@@ -12,7 +12,7 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
       const p2 = players[j];
 
       // Skip if either player is dead
-      const now = Date.now();
+      const now = performance.now();
       if ((p1.deadUntil && now < p1.deadUntil) || (p2.deadUntil && now < p2.deadUntil)) {
         continue;
       }
@@ -77,35 +77,46 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
           const speedMultiplier = Math.min(3, impactSpeed / 200); // Cap damage multiplier
           const damage = baseDamage * speedMultiplier;
 
+          const p1PrevHp = p1.hp;
+          const p2PrevHp = p2.hp;
+
           // Apply damage to both players
           p1.hp = Math.max(0, p1.hp - damage);
           p2.hp = Math.max(0, p2.hp - damage);
 
           // Emit explosion events for any players that died
-          if (p1.hp <= 0) {
-            p1.deadUntil = now + PLAYER.respawnDelayMs;
-            world.io?.emit("event", {
-              type: "Kill",
-              killerId: p2.id,
-              victimId: p1.id,
-              victimScore: p1.score,
-              victimLevel: p1.level,
-              x: p1.x,
-              y: p1.y,
-            });
+          if (p1PrevHp > 0 && p1.hp <= 0) {
+            p1.deadUntil = now + (p1.socketId ? PLAYER.respawnDelayMs : 8000);
+            for (const player of world.players.values()) {
+              if (player.socketId) {
+                world.io?.emitEvent(player.socketId, {
+                  type: "Kill",
+                  killerId: p2.id,
+                  victimId: p1.id,
+                  victimScore: p1.score,
+                  victimLevel: p1.level,
+                  x: p1.x,
+                  y: p1.y,
+                });
+              }
+            }
             spawnDeathPickups(world, p1);
           }
-          if (p2.hp <= 0) {
-            p2.deadUntil = now + PLAYER.respawnDelayMs;
-            world.io?.emit("event", {
-              type: "Kill", 
-              killerId: p1.id,
-              victimId: p2.id,
-              victimScore: p2.score,
-              victimLevel: p2.level,
-              x: p2.x,
-              y: p2.y,
-            });
+          if (p2PrevHp > 0 && p2.hp <= 0) {
+            p2.deadUntil = now + (p2.socketId ? PLAYER.respawnDelayMs : 8000);
+            for (const player of world.players.values()) {
+              if (player.socketId) {
+                world.io?.emitEvent(player.socketId, {
+                  type: "Kill", 
+                  killerId: p1.id,
+                  victimId: p2.id,
+                  victimScore: p2.score,
+                  victimLevel: p2.level,
+                  x: p2.x,
+                  y: p2.y,
+                });
+              }
+            }
             spawnDeathPickups(world, p2);
           }
 

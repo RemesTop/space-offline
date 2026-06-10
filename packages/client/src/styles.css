@@ -189,6 +189,14 @@ body,
 .level-up-modal {
   max-width: 600px;
 }
+@media (min-width: 768px) {
+  .level-up-modal {
+    position: fixed;
+    left: 20px;
+    top: 20px;
+    margin-top: 0;
+  }
+}
 
 .powerup-choices {
   display: grid;

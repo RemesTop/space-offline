@@ -40,12 +40,15 @@ export const ServerSnapshotSchema = z.object({
   entities: z.array(
     z.object({
       id: z.string(),
-      kind: z.enum(["player", "bullet", "pickup"]),
+      kind: z.enum(["player", "bullet", "pickup", "rock"]),
       x: z.number(),
       y: z.number(),
       vx: z.number(),
       vy: z.number(),
       r: z.number(),
+      rotation: z.number().optional(), // For rocks
+      aim: z.number().optional(), // For players
+      level: z.number().optional(), // For players
       hp: z.number().optional(),
       maxHp: z.number().optional(),
       ownerId: z.string().optional(),
@@ -57,23 +60,28 @@ export const ServerSnapshotSchema = z.object({
       fireCooldownMs: z.number().optional(),
       magnetRadius: z.number().optional(),
       shield: z.number().optional(),
+      isInvuln: z.boolean().optional(),
       powerupLevels: z
         .object({
           Hull: z.number(),
           Damage: z.number(),
-            Engine: z.number(),
-            FireRate: z.number(),
-            Magnet: z.number(),
-            Radar: z.number(),
+          Engine: z.number(),
+          FireRate: z.number(),
+          Magnet: z.number(),
+          Radar: z.number(),
         })
         .optional(),
       maxSpeed: z.number().optional(),
+      socketId: z.string().optional(),
+      name: z.string().optional(),
+      isBot: z.boolean().optional(),
+      isGiant: z.boolean().optional(),
     }),
   ),
   pickups: z.array(
     z.object({
       id: z.string(),
-      type: z.enum(["xp", "hp"]),
+      type: z.enum(["xp", "hp", "xp-giant"]),
       x: z.number(),
       y: z.number(),
       value: z.number(),

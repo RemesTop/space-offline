@@ -133,7 +133,7 @@ export class HUD {
       { name: "Engine", level: Math.round((accel - baseAccel) / 80) },
       { name: "FireRate", level: Math.round((baseFireRate - fireCooldownMs) / 25) },
       { name: "Magnet", level: Math.round((magnetRadius - baseMagnet) / 30) },
-      { name: "Radar", level: Math.round(shield / 10) },
+      { name: "Radar", level: stats.powerupLevels?.Radar || 0 },
     ];
     return raw.map(r => ({ ...r, level: Math.max(0, Math.min(5, r.level)) }));
   }
@@ -144,9 +144,12 @@ export class HUD {
     return raw.filter(p => p.level > 0);
   }
 
-  setScoreboard(entries: Array<{ name: string; score: number; level: number }>) {
+  setScoreboard(entries: Array<{ id: string; name: string; score: number; level: number }>, youId?: string) {
     const lines = entries
-      .map((e, i) => `${i + 1}. ${e.name} — ${e.score} (Lv ${e.level})`)
+      .map((e, i) => {
+        const text = `${i + 1}. ${e.name} — ${e.score} (Lv ${e.level})`;
+        return e.id === youId ? `<b>${text}</b>` : text;
+      })
       .join("<br/>");
     this.board.innerHTML = `<strong>Top 10</strong><br/>${lines || "No players"}`;
   }

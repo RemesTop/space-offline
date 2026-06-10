@@ -1,6 +1,9 @@
 import { WORLD, GRAVITY } from "@shared/constants.js";
 import type { WellState } from "@shared/types.js";
-import type { Server } from "socket.io";
+export interface LocalEmitter {
+  emitEvent(socketId: string, event: any): void;
+  emitSnapshot(socketId: string, snapshot: any): void;
+}
 import { rndRange } from "@shared/math.js";
 
 export type World = {
@@ -11,7 +14,8 @@ export type World = {
   players: Map<string, Player>;
   bullets: Map<string, Bullet>;
   pickups: Map<string, Pickup>;
-  io?: Server; // assigned in loop
+  rocks: Map<string, Rock>;
+  io?: LocalEmitter;
   awaitingFirstHuman: boolean; // paused state until a human connects
 };
 
@@ -36,8 +40,10 @@ export type Player = {
   xp: number;
   level: number;
   xpToNext: number;
+  aim: number;
   pendingOffer?: boolean;
   invulnUntil: number;
+  isGiant?: boolean;
   altFire?: "railgun" | "spread";
   // Powerup levels (1-5 for each powerup type)
   powerupLevels: {
@@ -76,12 +82,22 @@ export type Bullet = {
 
 export type Pickup = {
   id: string;
-  type: "xp" | "hp";
+  type: "xp" | "hp" | "xp-giant";
   x: number;
   y: number;
   r: number;
   value: number;
   createdAt: number; // ms timestamp when spawned
+};
+
+export type Rock = {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  rotation?: number;
 };
 
 export const createWorld = (): World => {
@@ -94,6 +110,7 @@ export const createWorld = (): World => {
     players: new Map(),
     bullets: new Map(),
     pickups: new Map(),
+    rocks: new Map(),
     awaitingFirstHuman: true,
   };
 };
@@ -142,6 +159,7 @@ export const resetWorld = (world: World) => {
   world.players.clear();
   world.bullets.clear();
   world.pickups.clear();
+  world.rocks.clear();
   world.wells = GRAVITY.wells.map((w) => ({ ...w }));
   world.tick = 0;
   world.awaitingFirstHuman = false; // unpause once first human joins

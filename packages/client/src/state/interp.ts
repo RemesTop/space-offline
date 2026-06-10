@@ -20,11 +20,12 @@ export class Interp {
     const curr = this.current.get(id);
     if (!prev || !curr) return curr ?? prev;
     const a = this.alpha;
-    return {
+    const res = {
       ...curr,
       x: prev.x + (curr.x - prev.x) * a,
       y: prev.y + (curr.y - prev.y) * a,
     };
+    return res;
   }
 
   ids(): string[] {

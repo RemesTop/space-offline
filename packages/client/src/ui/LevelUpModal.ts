@@ -87,21 +87,23 @@ export class LevelUpModal {
     const accel = stats.accel || baseAccel;
     const fireCooldownMs = stats.fireCooldownMs || baseFireRate;
     const magnetRadius = stats.magnetRadius || baseMagnet;
-    const shield = stats.shield || 0;
+
+    // Server passes powerupLevels directly, use them!
+    const powerups = stats.powerupLevels || { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Radar: 0 };
 
     // Use ACTUAL server upgrade amounts for level calculations
-    const hullLevel = Math.max(1, Math.min(5, Math.round((maxHp - baseMaxHp) / 20) + 1));
-    const damageLevel = Math.max(1, Math.min(5, Math.round((damage - baseDamage) / 4) + 1)); // Server uses +4
-    const engineLevel = Math.max(1, Math.min(5, Math.round((accel - baseAccel) / 80) + 1)); // Server uses +80
-    const fireRateLevel = Math.max(1, Math.min(5, Math.round((baseFireRate - fireCooldownMs) / 25) + 1)); // Server uses -25
-    const magnetLevel = Math.max(1, Math.min(5, Math.round((magnetRadius - baseMagnet) / 30) + 1)); // Server uses +30
-    const radarLevel = Math.max(1, Math.min(5, Math.round(shield / 10) + 1));
+    const hullLevel = (powerups.Hull || 0) + 1;
+    const damageLevel = (powerups.Damage || 0) + 1;
+    const engineLevel = (powerups.Engine || 0) + 1;
+    const fireRateLevel = (powerups.FireRate || 0) + 1;
+    const magnetLevel = (powerups.Magnet || 0) + 1;
+    const radarLevel = (powerups.Radar || 0) + 1;
 
     return [
       {
         family: "Hull" as const,
         currentLevel: hullLevel,
-        desc: `+20 HP (Current: ${maxHp} HP)`
+        desc: `+40 HP (Current: ${maxHp} HP)`
       },
       {
         family: "Damage" as const,
@@ -126,7 +128,7 @@ export class LevelUpModal {
       {
         family: "Radar" as const,
         currentLevel: radarLevel,
-        desc: `+10 shield & zoom out (Current: ${shield})`
+        desc: `+Turn speed & zoom out`
       },
     ].filter(option => option.currentLevel < 5); // Only show upgradeable powerups
   }

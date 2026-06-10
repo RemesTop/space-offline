@@ -1,10 +1,10 @@
 export type V2 = { x: number; y: number };
 
-export type EntityKind = "player" | "bullet" | "pickup";
+export type EntityKind = "player" | "bullet" | "pickup" | "rock";
 
 export type WellType = "planet" | "sun" | "blackhole";
 
-export type PickupType = "xp" | "hp";
+export type PickupType = "xp" | "hp" | "xp-giant";
 
 export type AltFireType = "railgun" | "spread";
 
@@ -44,11 +44,18 @@ export type EntityState = {
   hp?: number;
   maxHp?: number;
   ownerId?: string; // for bullets
+  socketId?: string;
+  name?: string;
+  isBot?: boolean;
+  isGiant?: boolean;
+  aim?: number;
+  level?: number;
+  rotation?: number;
 };
 
 export type PickupState = {
   id: string;
-  type: PickupType;
+  type: "xp" | "hp" | "xp-giant";
   x: number;
   y: number;
   value: number;

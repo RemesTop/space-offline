@@ -22,16 +22,20 @@ export const applyGravity = (world: World, dt: number) => {
         const prevHp = p.hp;
         p.hp -= GRAVITY.sunHeatDps * dt;
         if (prevHp > 0 && p.hp <= 0) {
-          p.deadUntil = Date.now() + PLAYER.respawnDelayMs;
-          world.io?.emit("event", {
-            type: "Kill",
-            killerId: null, // Environmental death
-            victimId: p.id,
-            victimScore: p.score,
-            victimLevel: p.level,
-            x: p.x,
-            y: p.y,
-          });
+          p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+          for (const player of world.players.values()) {
+            if (player.socketId) {
+              world.io?.emitEvent(player.socketId, {
+                type: "Kill",
+                killerId: null, // Environmental death
+                victimId: p.id,
+                victimScore: p.score,
+                victimLevel: p.level,
+                x: p.x,
+                y: p.y,
+              });
+            }
+          }
           spawnDeathPickups(world, p);
         }
       }
@@ -39,16 +43,20 @@ export const applyGravity = (world: World, dt: number) => {
         const prevHp = p.hp;
         p.hp -= GRAVITY.blackHoleEdgeDps * dt;
         if (prevHp > 0 && p.hp <= 0) {
-          p.deadUntil = Date.now() + PLAYER.respawnDelayMs;
-          world.io?.emit("event", {
-            type: "Kill",
-            killerId: null, // Environmental death
-            victimId: p.id,
-            victimScore: p.score,
-            victimLevel: p.level,
-            x: p.x,
-            y: p.y,
-          });
+          p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+          for (const player of world.players.values()) {
+            if (player.socketId) {
+              world.io?.emitEvent(player.socketId, {
+                type: "Kill",
+                killerId: null, // Environmental death
+                victimId: p.id,
+                victimScore: p.score,
+                victimLevel: p.level,
+                x: p.x,
+                y: p.y,
+              });
+            }
+          }
           spawnDeathPickups(world, p);
         }
       }
@@ -62,16 +70,21 @@ export const applyGravity = (world: World, dt: number) => {
           const prevHp = p.hp;
           p.hp -= damage;
           if (prevHp > 0 && p.hp <= 0) {
-            p.deadUntil = Date.now() + PLAYER.respawnDelayMs;
-            world.io?.emit("event", {
-              type: "Kill",
-              killerId: null,
-              victimId: p.id,
-              victimScore: p.score,
-              victimLevel: p.level,
-              x: p.x,
-              y: p.y,
-            });
+            p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+            // Emit to all players so everyone sees the explosion
+            for (const player of world.players.values()) {
+              if (player.socketId) {
+                world.io?.emitEvent(player.socketId, {
+                  type: "Kill",
+                  killerId: null,
+                  victimId: p.id,
+                  victimScore: p.score,
+                  victimLevel: p.level,
+                  x: p.x,
+                  y: p.y,
+                });
+              }
+            }
             spawnDeathPickups(world, p);
           }
         }
@@ -154,22 +167,24 @@ export const bulletHits = (world: World, dt: number, now: number) => {
           toRemove.push(b.id);
           break;
         }
+        const prevHp = p.hp;
         p.hp -= b.damage;
         if (!b.pierce) toRemove.push(b.id);
-        if (p.hp <= 0) {
-          p.deadUntil = now + PLAYER.respawnDelayMs;
-          // Emit kill event for explosion effect
-          const socket = world.io?.sockets.sockets.get(p.socketId);
-          if (socket) {
-            world.io?.emit("event", {
-              type: "Kill",
-              killerId: b.ownerId,
-              victimId: p.id,
-              victimScore: p.score,
-              victimLevel: p.level,
-              x: p.x,
-              y: p.y,
-            });
+        if (prevHp > 0 && p.hp <= 0) {
+          p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+          // Emit kill event for explosion effect to everyone
+          for (const player of world.players.values()) {
+            if (player.socketId) {
+              world.io?.emitEvent(player.socketId, {
+                type: "Kill",
+                killerId: b.ownerId,
+                victimId: p.id,
+                victimScore: p.score,
+                victimLevel: p.level,
+                x: p.x,
+                y: p.y,
+              });
+            }
           }
           spawnDeathPickups(world, p);
         }

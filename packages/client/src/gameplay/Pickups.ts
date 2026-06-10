@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-type PickupType = "xp" | "hp";
+type PickupType = "xp" | "hp" | "xp-giant";
 type PickupSprite = Phaser.GameObjects.Arc | Phaser.GameObjects.Container | Phaser.GameObjects.Image;
 
 interface StardustParticle {
@@ -24,12 +24,12 @@ export default class Pickups {
 
   // Create sprite if missing (color by type)
   ensure(id: string, type: PickupType) {
-    if (type === "xp") {
+    if (type === "xp" || type === "xp-giant") {
       if (!this.byId.has(id)) {
         const container = this.scene.add.container(0, 0).setDepth(2);
         const particles: StardustParticle[] = [];
-        const count = 9; // more particles for a fuller look
-        const maxRadius = 16; // larger radius for a bigger pickup
+        const count = type === "xp-giant" ? 15 : 9; // even more particles for giant
+        const maxRadius = type === "xp-giant" ? 24 : 16;
         for (let i = 0; i < count; i++) {
           const t = Math.pow(Math.random(), 1.2); // slightly less bias for more spread
           const r = maxRadius * t;
@@ -37,15 +37,20 @@ export default class Pickups {
           const x = Math.cos(a) * r;
           const y = Math.sin(a) * r;
           const gfx = this.scene.add.graphics({ x, y });
-          // Glowing yellow: use a radial gradient effect
-          const color = 0xffe066; // warm yellow
-          const glow = 0xfff7b2; // soft outer glow
+          
+          let color = 0xffe066; // warm yellow
+          let glow = 0xfff7b2; // soft outer glow
+          if (type === "xp-giant") {
+            color = 0xffffff; // white
+            glow = 0xe0e0e0; // light gray glow
+          }
+
           // Draw glow
           gfx.fillStyle(glow, 0.25);
-          gfx.fillCircle(0, 0, 8);
+          gfx.fillCircle(0, 0, type === "xp-giant" ? 10 : 8);
           // Draw main star
           gfx.fillStyle(color, 1);
-          gfx.fillCircle(0, 0, 2.5 + Math.random() * 2);
+          gfx.fillCircle(0, 0, (type === "xp-giant" ? 3.5 : 2.5) + Math.random() * 2);
           container.add(gfx);
           particles.push({
             gfx,
@@ -58,6 +63,8 @@ export default class Pickups {
             oscR: 1.2 + Math.random() * 2.2, // more movement
           });
         }
+        container.setAlpha(0);
+        this.scene.tweens.add({ targets: container, alpha: 1, duration: 500 });
         this.byId.set(id, container);
         this.stardustParticles.set(id, particles);
       }
@@ -67,6 +74,8 @@ export default class Pickups {
     if (type === "hp") {
       if (!this.byId.has(id)) {
         const img = this.scene.add.image(0, 0, "heart").setDepth(2).setDisplaySize(24, 24);
+        img.setAlpha(0);
+        this.scene.tweens.add({ targets: img, alpha: 1, duration: 500 });
         this.byId.set(id, img);
       }
       return;
@@ -80,7 +89,7 @@ export default class Pickups {
       // Only render if on screen
       const w = this.scene.scale.width;
       const h = this.scene.scale.height;
-      const margin = 32; // allow a small margin for partial visibility
+      const margin = 120; // Increased margin for further render distance
       const visible = sx >= -margin && sx <= w + margin && sy >= -margin && sy <= h + margin;
       s.setVisible(visible);
       if (visible) s.setPosition(sx, sy);

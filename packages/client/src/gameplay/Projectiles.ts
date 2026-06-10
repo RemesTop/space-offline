@@ -13,6 +13,10 @@ export default class Projectiles {
 
   constructor(private scene: Phaser.Scene) {}
 
+  has(id: string) {
+    return this.byId.has(id);
+  }
+
   // Create sprite if missing (radius can change)
   // Add velocity parameters
   ensure(id: string, r: number, vx: number, vy: number) {

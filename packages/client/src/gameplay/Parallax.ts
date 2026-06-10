@@ -34,14 +34,14 @@ export default class Parallax {
     const h = scene.scale.height;
 
     this.far = scene.add
-      .tileSprite(0, 0, w, h, "stars_far")
-      .setOrigin(0, 0)
+      .tileSprite(w/2, h/2, w, h, "stars_far")
+      .setOrigin(0.5, 0.5)
       .setScrollFactor(0)
       .setDepth(0);
 
     this.near = scene.add
-      .tileSprite(0, 0, w, h, "stars_near")
-      .setOrigin(0, 0)
+      .tileSprite(w/2, h/2, w, h, "stars_near")
+      .setOrigin(0.5, 0.5)
       .setScrollFactor(0)
       .setAlpha(0.75)
       .setDepth(1);

@@ -1,5 +1,4 @@
-import type { Server } from "socket.io";
-import type { World } from "./world.js";
+import type { World, LocalEmitter } from "./world.js";
 import { config } from "../config.js";
 import { applyGravity, bulletHits, integrate } from "./systems/physics.js";
 import { processInputs } from "./entities.js";
@@ -9,7 +8,7 @@ import { getScoreboard } from "./systems/scoreboard.js";
 import { spawnBot, updateBots, cleanupBots, getBotCount } from "./systems/bots.js";
 import { updatePlanetMovement } from "./systems/planetMovement.js";
 import { handlePlayerCollisions } from "./systems/playerCollisions.js";
-import { performance } from "perf_hooks";
+import { spawnRocks, updateRocks, handleRockCollisions } from "./systems/rocks.js";
 
 // Basic performance metrics (can be expanded later)
 let movingAvgTickMs = 0;
@@ -28,7 +27,7 @@ const MAX_CATCHUP_TICKS = 5;
 // Logging threshold for a single tick (ms)
 const TICK_WARN_MS = 12; // > ~12ms means can't sustain 60fps host
 
-export const startLoop = (io: Server, world: World) => {
+export const startLoop = (io: LocalEmitter, world: World) => {
   world.io = io;
   const tickDtMs = 1000 / config.tickHz;
   let last = performance.now();
@@ -66,7 +65,7 @@ export const startLoop = (io: Server, world: World) => {
   frame();
 };
 
-function doSimTick(io: Server, world: World, dt: number, nowMs: number) {
+function doSimTick(io: LocalEmitter, world: World, dt: number, nowMs: number) {
   if (world.awaitingFirstHuman) return; // pause sim until a real player joins
   const now = nowMs; // keep original variable naming semantics for existing code
   world.tick++;
@@ -78,17 +77,23 @@ function doSimTick(io: Server, world: World, dt: number, nowMs: number) {
     botSpawnAccumulator += dt * 1000;
     if (botSpawnAccumulator >= 3000) {
       botSpawnAccumulator = 0;
-      const humanPlayers = Array.from(world.players.values()).filter((p) => p.socketId !== "");
-      const targetBotCount = Math.min(8, Math.max(2, humanPlayers.length * 2));
+      const targetBotCount = 10; // Fixed 10 bots for singleplayer mode
       if (getBotCount() < targetBotCount) spawnBot(world);
     }
   }
 
   updatePlanetMovement(world, dt);
   processInputs(world, now);
+  
+  spawnRocks(world, dt * 1000);
+  updateRocks(world, dt);
+  
   applyGravity(world, dt);
   integrate(world, dt);
+  
   handlePlayerCollisions(world, dt);
+  handleRockCollisions(world, now);
+  
   bulletHits(world, dt, now);
   updatePickups(world);
   handleDeathsAndRespawn(world, now);
@@ -104,11 +109,11 @@ function doSimTick(io: Server, world: World, dt: number, nowMs: number) {
   if (snapshotAccumulator >= 1000 / config.snapshotHz) {
     snapshotAccumulator = 0;
     // Defer snapshot emission to avoid blocking next physics tick
-    setImmediate(() => ioSnapshot(io, world));
+    setTimeout(() => ioSnapshot(io, world), 0);
   }
 }
 
-export const ioSnapshot = (io: Server, world: World) => {
+export const ioSnapshot = (io: LocalEmitter, world: World) => {
   // Build shared lists once per snapshot
   reusablePlayerList.length = 0;
   for (const op of world.players.values()) {
@@ -132,6 +137,13 @@ export const ioSnapshot = (io: Server, world: World) => {
       fireCooldownMs: op.fireCooldownMs,
       powerupLevels: op.powerupLevels,
       shield: op.shield,
+      invulnUntil: op.invulnUntil,
+      isInvuln: op.invulnUntil !== undefined && performance.now() < op.invulnUntil,
+      isGiant: op.isGiant,
+      name: op.name,
+      socketId: op.socketId,
+      aim: op.aim,
+      level: op.level,
     });
   }
   reusableBulletList.length = 0;
@@ -157,18 +169,28 @@ export const ioSnapshot = (io: Server, world: World) => {
   }));
   const wells = world.wells.map((w) => ({ ...w }));
   const scoreboard = getScoreboard(world);
+  
+  // Format rocks as entities for interpolation
+  const reusableRockList = Array.from(world.rocks.values()).map(r => ({
+    id: r.id,
+    kind: "rock" as const,
+    x: r.x,
+    y: r.y,
+    vx: r.vx,
+    vy: r.vy,
+    r: r.r,
+    rotation: r.rotation,
+  }));
 
   // Only send to real players
   for (const p of world.players.values()) {
     if (!p.socketId) continue;
-    const sock = io.sockets.sockets.get(p.socketId);
-    if (!sock) continue;
     // Reuse arrays via spread to prevent accidental mutation cross-player
-    sock.emit("snapshot", {
+    io.emitSnapshot(p.socketId, {
       tick: world.tick,
       acks: { seq: p.lastAckSeq },
       youId: p.id,
-      entities: [...reusablePlayerList, ...reusableBulletList],
+      entities: [...reusablePlayerList, ...reusableBulletList, ...reusableRockList],
       pickups: basePickups,
       wells,
       scoreboard,

@@ -27,10 +27,11 @@ export function spawnDeathPickups(world: World, player: Player) {
     // XP value: small random in existing xpValueRange bounds (favor smaller end)
     const min = PICKUPS.xpValueRange[0];
     const max = PICKUPS.xpValueRange[1];
-    const value = Math.floor(rndRange(min, (min + max) / 2));
+    const isWhite = player.isGiant || (!player.socketId && player.level > 5);
+    const value = Math.floor(rndRange(min, (min + max) / 2)) * (isWhite ? 2 : 1);
     const pu: Pickup = {
       id,
-      type: "xp",
+      type: isWhite ? "xp-giant" : "xp",
       x,
       y,
       r: 10,
@@ -38,5 +39,19 @@ export function spawnDeathPickups(world: World, player: Player) {
       createdAt: Date.now(),
     };
     world.pickups.set(id, pu);
+  }
+
+  // Drop a health pickup if it's a bot
+  if (!player.socketId) {
+    const id = nanoid();
+    world.pickups.set(id, {
+      id,
+      type: "hp",
+      x: cx,
+      y: cy,
+      r: 10,
+      value: 20, // Health restore amount
+      createdAt: Date.now(),
+    });
   }
 }

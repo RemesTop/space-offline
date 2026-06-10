@@ -10,7 +10,7 @@ export const PLAYER = {
   baseMaxSpeed: 300, // px/s
   baseHP: 125,
   invulnMs: 2000,
-  respawnDelayMs: 0,
+  respawnDelayMs: 3000,
 };
 
 export const BULLET = {
