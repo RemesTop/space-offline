@@ -8,12 +8,15 @@ export type PickupType = "xp" | "hp" | "xp-giant";
 
 export type AltFireType = "railgun" | "spread";
 
-export type PowerupFamily = "Hull" | "Damage" | "Engine" | "FireRate" | "Magnet" | "Radar";
+export type SpecialVariant = 'Regen Wings' | 'Gravity Point' | 'Bumper Body' | 'Twin Weapon' | 'Laser Window' | 'Omni Window';
+
+export type PowerupFamily = "Hull" | "Damage" | "Engine" | "FireRate" | "Magnet" | "Radar" | "Special";
 
 export type PowerupChoice = {
   family: PowerupFamily | "AltFire";
   tier?: number; // 1..5 for normal families
   alt?: AltFireType;
+  special?: SpecialVariant;
   label: string;
   desc: string;
 };
@@ -31,6 +34,7 @@ export type PlayerStats = {
   shield: number; // simple flat extra hp/regen placeholder (kept for backward compatibility with radar)
   radarLevel?: number; // radar upgrade level for zoom-out functionality
   altFire?: AltFireType;
+  specialVariant?: SpecialVariant;
 };
 
 export type EntityState = {
@@ -51,6 +55,7 @@ export type EntityState = {
   aim?: number;
   level?: number;
   rotation?: number;
+  specialVariant?: SpecialVariant;
 };
 
 export type PickupState = {

@@ -6,6 +6,8 @@ import { spawnDeathPickups } from "./deathDrops.js";
 export const applyGravity = (world: World, dt: number) => {
   for (const p of world.players.values()) {
     for (const w of world.wells) {
+      if (p.specialVariant === 'Gravity Point') continue;
+      
       const dx = w.x - p.x;
       const dy = w.y - p.y;
       const d2 = dx * dx + dy * dy;
@@ -21,6 +23,7 @@ export const applyGravity = (world: World, dt: number) => {
       if (w.type === "sun" && d < w.radius + 60) {
         const prevHp = p.hp;
         p.hp -= GRAVITY.sunHeatDps * dt;
+        p.lastDamageTakenAt = performance.now();
         if (prevHp > 0 && p.hp <= 0) {
           p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
           for (const player of world.players.values()) {
@@ -42,6 +45,7 @@ export const applyGravity = (world: World, dt: number) => {
       if (w.type === "blackhole" && d < w.radius + 40) {
         const prevHp = p.hp;
         p.hp -= GRAVITY.blackHoleEdgeDps * dt;
+        p.lastDamageTakenAt = performance.now();
         if (prevHp > 0 && p.hp <= 0) {
           p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
           for (const player of world.players.values()) {
@@ -69,6 +73,7 @@ export const applyGravity = (world: World, dt: number) => {
           const damage = baseDps * speedFactor * dt; // DPS scaled by speed and frame time
           const prevHp = p.hp;
           p.hp -= damage;
+          p.lastDamageTakenAt = performance.now();
           if (prevHp > 0 && p.hp <= 0) {
             p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
             // Emit to all players so everyone sees the explosion
@@ -207,6 +212,7 @@ export const bulletHits = (world: World, dt: number, now: number) => {
         }
         const prevHp = p.hp;
         p.hp -= b.damage;
+        p.lastDamageTakenAt = now;
         if (!b.pierce) toRemove.push(b.id);
         if (prevHp > 0 && p.hp <= 0) {
           p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : 8000);

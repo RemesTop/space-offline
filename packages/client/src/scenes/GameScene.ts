@@ -141,6 +141,13 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("raketti/weapon1.png", new URL("../assets/raketti/weapon1.png", import.meta.url).toString());
     this.load.image("raketti/weapon2.png", new URL("../assets/raketti/weapon2.png", import.meta.url).toString());
 
+    this.load.image("raketti/bodyspecial.png", new URL("../assets/raketti/bodyspecial.png", import.meta.url).toString());
+    this.load.image("raketti/wingsspecial.png", new URL("../assets/raketti/wingsspecial.png", import.meta.url).toString());
+    this.load.image("raketti/windowspecial.png", new URL("../assets/raketti/windowspecial.png", import.meta.url).toString());
+    this.load.image("raketti/windowspecial-aim.png", new URL("../assets/raketti/windowspecial-aim.png", import.meta.url).toString());
+    this.load.image("raketti/pointspecial.png", new URL("../assets/raketti/pointspecial.png", import.meta.url).toString());
+    this.load.image("raketti/weaponspecial.png", new URL("../assets/raketti/weaponspecial.png", import.meta.url).toString());
+
     // Preload fire animation textures
     this.load.image("fire/fire0.png", new URL("../assets/fire/fire0.png", import.meta.url).toString());
     this.load.image("fire/fire1.png", new URL("../assets/fire/fire1.png", import.meta.url).toString());
@@ -360,7 +367,7 @@ export default class GameScene extends Phaser.Scene {
     if (!/^https?:\/\//i.test(serverUrl)) {
       serverUrl = window.location.origin;
     }
-    console.log('[net] connecting to', serverUrl);
+    console.log('[net] Initializing local game simulation...');
     const connectP = this.net.connect(serverUrl);
 
     this.net.onEvent(async (e) => {
@@ -412,6 +419,7 @@ export default class GameScene extends Phaser.Scene {
             accel: updated.accel,
             magnetRadius: updated.magnetRadius,
             fireCooldownMs: updated.fireCooldownMs,
+            specialVariant: updated.specialVariant,
           });
           const youId = this.net.youId;
           if (youId) {
@@ -608,6 +616,7 @@ export default class GameScene extends Phaser.Scene {
             engineLevel: e.powerupLevels?.Engine,
             radarLevel: e.powerupLevels?.Radar,
             isGiant: e.isGiant,
+            specialVariant: (e as any).specialVariant,
           });
         }
       } else if (e.kind === "rock") {

@@ -180,33 +180,40 @@ export default class Ship {
     radarLevel?: number;
     hullLevel?: number;
     isGiant?: boolean;
+    specialVariant?: any;
   }) {
-    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, radarLevel, isGiant } = stats;
+    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, radarLevel, isGiant, specialVariant } = stats;
 
     // Body texture based on HP - changes at level 2 (120HP), then level 5 (180HP)
     // Level 1: 100HP (texture 0), Level 2+: 120HP+ (texture 1), Level 5+: 180HP+ (texture 2)
     const bodyLevel = maxHp <= 100 ? 0 : maxHp < 180 ? 1 : 2;
     this.body.setTexture(`raketti/body${bodyLevel}.png`);
+    if (specialVariant === 'Bumper Body') this.body.setTexture('raketti/bodyspecial.png');
 
     // Weapon texture based on fire cooldown - changes at level 2, then level 5
     // Level 1: 220ms (texture 0), Level 2+: <220ms (texture 1), Level 5+: much lower (texture 2)
     const weaponLevel = fireCooldownMs >= 220 ? 0 : fireCooldownMs > 180 ? 1 : 2;
     this.weapon.setTexture(`raketti/weapon${weaponLevel}.png`);
+    if (specialVariant === 'Twin Weapon') this.weapon.setTexture('raketti/weaponspecial.png');
 
     // Point texture based on base damage - changes at level 2, then level 5
     // Level 1: 12 damage (texture 0), Level 2+: 16+ damage (texture 1), Level 5+: 24+ damage (texture 2)
     const pointLevel = damage <= 12 ? 0 : damage < 24 ? 1 : 2;
     this.point.setTexture(`raketti/point${pointLevel}.png`);
+    if (specialVariant === 'Gravity Point') this.point.setTexture('raketti/pointspecial.png');
 
     // Wings texture based on acceleration - changes at level 2, then level 5
     // Level 1: 850 accel (texture 0), Level 2+: 930+ accel (texture 1), Level 5+: 1000+ accel (texture 2)
     const wingsLevel = accel <= 850 ? 0 : accel < 1000 ? 1 : 2;
     this.wings.setTexture(`raketti/wings${wingsLevel}.png`);
+    if (specialVariant === 'Regen Wings') this.wings.setTexture('raketti/wingsspecial.png');
 
     // Window texture based on magnet radius - changes at level 2, then level 5
     // Level 1: 100 radius (texture 0), Level 2+: 130+ radius (texture 1), Level 5+: 190+ radius (texture 2)
     const windowLevel = magnetRadius <= 100 ? 0 : magnetRadius < 190 ? 1 : 2;
     this.window.setTexture(`raketti/window${windowLevel}.png`);
+    if (specialVariant === 'Laser Window') this.window.setTexture('raketti/windowspecial.png');
+    if (specialVariant === 'Omni Window') this.window.setTexture('raketti/windowspecial-aim.png');
 
     // Scale ship based on hull level and giant status
     if (hullLevel !== undefined) {

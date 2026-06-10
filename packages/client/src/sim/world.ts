@@ -42,9 +42,12 @@ export type Player = {
   xpToNext: number;
   aim: number;
   pendingOffer?: boolean;
+  pendingOffersCount?: number;
   invulnUntil: number;
   isGiant?: boolean;
   altFire?: "railgun" | "spread";
+  specialVariant?: 'Regen Wings' | 'Gravity Point' | 'Bumper Body' | 'Twin Weapon' | 'Laser Window' | 'Omni Window';
+  lastDamageTakenAt?: number;
   // Powerup levels (1-5 for each powerup type)
   powerupLevels: {
     Hull: number;

@@ -63,7 +63,9 @@ export const addPlayer = (
       Magnet: 0,
       Radar: 0,
     },
+    lastDamageTakenAt: 0,
   };
+  updatePlayerRadius(p);
   world.players.set(id, p);
   return p;
 };
@@ -99,34 +101,10 @@ export const processInputs = (world: World, now: number) => {
     while (p.inputQueue.length) {
       const f = p.inputQueue.shift()!;
       p.aim = f.aim;
-      // thrust towards pointer direction scaled by accel
       // Make movement more floaty: reduce acceleration for bots
       let accelMult = p.socketId ? 1.0 : 0.6;
-      const currentSpd = Math.hypot(p.vx, p.vy);
-      if (currentSpd > 10) {
-        const nx = p.vx / currentSpd;
-        const ny = p.vy / currentSpd;
-        const dot = nx * f.thrust.x + ny * f.thrust.y;
-        if (dot < 0.2) {
-          accelMult = 2.0; // Higher acceleration when turning or braking
-        }
-      }
       
       let floatyAccel = p.accel * accelMult;
-      
-      const aimDx = Math.cos(f.aim);
-      const aimDy = Math.sin(f.aim);
-      const thrustDotAim = f.thrust.x * aimDx + f.thrust.y * aimDy;
-      const isReversing = thrustDotAim < -0.2;
-      
-      if (isReversing && currentSpd > p.maxSpeed * 0.4) {
-        // If we are thrusting in reverse and already going fast, don't accelerate further
-        // unless the thrust is opposing our current velocity
-        const thrustDotVel = f.thrust.x * p.vx + f.thrust.y * p.vy;
-        if (thrustDotVel > 0) {
-          floatyAccel = 0;
-        }
-      }
 
       p.vx += clamp(f.thrust.x, -1, 1) * floatyAccel * (f.dtMs / 1000);
       p.vy += clamp(f.thrust.y, -1, 1) * floatyAccel * (f.dtMs / 1000);
@@ -140,13 +118,30 @@ export const processInputs = (world: World, now: number) => {
         p.vy *= s;
       }
       if (f.fire) tryFire(world, p, f.aim, now);
+      
+      // Regen Wings logic
+      if (p.specialVariant === 'Regen Wings' && p.hp > 0 && p.hp < p.maxHp) {
+        if (now - (p.lastDamageTakenAt || 0) > 3000) {
+          p.hp = Math.min(p.maxHp, p.hp + 5 * (f.dtMs / 1000));
+        }
+      }
+      
       p.lastAckSeq = Math.max(p.lastAckSeq, f.seq);
     }
   }
 };
 
-export const xpForLevel = (level: number) => Math.floor(POWERUPS.xpBase * Math.pow(level, 1.4));
+export const xpForLevel = (level: number) => {
+  return Math.floor(POWERUPS.xpBase * Math.pow(level, 1.4));
+};
 
+export const updatePlayerRadius = (p: Player) => {
+  const giantMultiplier = p.isGiant ? 1.3 : 1.0;
+  const hullLevel = p.powerupLevels.Hull || 0;
+  const engineLevel = p.powerupLevels.Engine || 0;
+  const radarLevel = p.powerupLevels.Radar || 0;
+  p.r = PLAYER.radius * giantMultiplier * (1 + 0.15 * hullLevel + 0.05 * engineLevel + 0.03 * radarLevel);
+};
 export const levelUp = (world: World, playerId: string) => {
   const player = world.players.get(playerId);
   if (!player) return;
@@ -163,10 +158,15 @@ export const levelUp = (world: World, playerId: string) => {
 export const giveXP = (world: World, p: Player, value: number) => {
   p.xp += value;
   p.score += value;
+  let leveledUp = false;
   while (p.xp >= p.xpToNext) {
     p.level++;
     p.xp -= p.xpToNext;
     p.xpToNext = xpForLevel(p.level + 1);
+    p.pendingOffersCount = (p.pendingOffersCount || 0) + 1;
+    leveledUp = true;
+  }
+  if (leveledUp && !p.pendingOffer) {
     p.pendingOffer = true;
     sendOffer(world, p);
   }
@@ -188,15 +188,18 @@ const sendOffer = (world: World, p: Player) => {
       const currentLevel = c.family === 'AltFire' ? -1 : (c.tier ?? 1) - 1;
       return { choice: c, currentLevel };
     });
-    // Prefer AltFire if available and level high enough; else lowest current level, tie-break randomly
-    let pick = scored.find(s => s.choice.family === 'AltFire')?.choice;
+    // Prefer Special if available
+    let pick = scored.find(s => s.choice.family === 'Special')?.choice;
+    if (!pick) {
+      pick = scored.find(s => s.choice.family === 'AltFire')?.choice;
+    }
     if (!pick) {
       const minLevel = Math.min(...scored.map(s => s.currentLevel));
       const lowest = scored.filter(s => s.currentLevel === minLevel).map(s => s.choice);
       pick = lowest[Math.floor(Math.random() * lowest.length)];
     }
     // Apply selection directly
-    applyLevelChoice(world, p.id, { family: pick.family, tier: pick.tier, alt: pick.alt });
+    applyLevelChoice(world, p.id, { family: pick.family, tier: pick.tier, alt: pick.alt, special: pick.special });
     return;
   }
   world.io?.emitEvent(p.socketId, { type: "LevelUpOffer", choices });
@@ -205,19 +208,27 @@ const sendOffer = (world: World, p: Player) => {
 export const applyLevelChoice = (
   world: World,
   id: string,
-  choice: { family: PowerupFamily | "AltFire"; tier?: number; alt?: AltFireType }
+  choice: { family: PowerupFamily | "AltFire"; tier?: number; alt?: AltFireType; special?: any }
 ) => {
   const p = world.players.get(id);
   if (!p || !p.pendingOffer) return;
 
-  if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
+  if (choice.family === "Special" && choice.special) {
+    p.specialVariant = choice.special;
+  } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
     p.altFire = choice.alt;
   } else if (choice.family === "Hull" && choice.tier) {
     // Check if Hull is already at max level (5)
     if (p.powerupLevels.Hull < 5) {
       p.powerupLevels.Hull++;
-      p.maxHp += 40;
-      p.hp = Math.min(p.maxHp, p.hp + 40);
+      // Bot HP upgrade should be significantly reduced for the later levels (hull 3 and after only +20)
+      if (!p.socketId && p.powerupLevels.Hull >= 3) {
+        p.maxHp += 20;
+        p.hp = Math.min(p.maxHp, p.hp + 20);
+      } else {
+        p.maxHp += 40;
+        p.hp = Math.min(p.maxHp, p.hp + 40);
+      }
     }
   } else if (choice.family === "Damage" && choice.tier) {
     if (p.powerupLevels.Damage < 5) {
@@ -247,7 +258,15 @@ export const applyLevelChoice = (
     }
   }
 
-  p.pendingOffer = false;
+  updatePlayerRadius(p);
+
+  p.pendingOffersCount = Math.max(0, (p.pendingOffersCount || 1) - 1);
+  if (p.pendingOffersCount > 0) {
+    p.pendingOffer = true;
+    sendOffer(world, p);
+  } else {
+    p.pendingOffer = false;
+  }
   world.io?.emitEvent(p.socketId, {
     type: "LevelUpApplied",
     updated: {
@@ -263,12 +282,24 @@ export const applyLevelChoice = (
       shield: p.shield,
       radarLevel: p.powerupLevels.Radar,
       altFire: p.altFire,
+      specialVariant: p.specialVariant,
       powerupLevels: p.powerupLevels,
     },
   });
 };
 
 const rollChoices = (p: Player): PowerupChoice[] => {
+  if (p.level >= 6 && !p.specialVariant) {
+    return [
+      { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "Slight regeneration (pauses after damage)" },
+      { family: "Special", special: "Gravity Point", label: "Gravity Point", desc: "No damage/collision from planets/gravity" },
+      { family: "Special", special: "Bumper Body", label: "Bumper Body", desc: "Damage and push other ships away heavily" },
+      { family: "Special", special: "Twin Weapon", label: "Twin Weapon", desc: "Shoot two bullets instead of one" },
+      { family: "Special", special: "Laser Window", label: "Laser Window", desc: "Shoot a piercing laser that goes through rocks" },
+      { family: "Special", special: "Omni Window", label: "Omni Window", desc: "Shoot bullets forward and backward" },
+    ];
+  }
+
   const arr: PowerupChoice[] = [];
 
   // Create pool of available powerups that aren't at max level
@@ -335,8 +366,8 @@ const rollChoices = (p: Player): PowerupChoice[] => {
     });
   }
 
-  // Select up to 3 different powerup families
-  while (arr.length < 3 && pool.length > 0) {
+  // Select up to 4 different powerup families
+  while (arr.length < 4 && pool.length > 0) {
     const randomIndex = Math.floor(Math.random() * pool.length);
     const pick = pool[randomIndex];
 
@@ -350,7 +381,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
   }
 
   // Add AltFire option if eligible and we have space
-  if (p.level >= 10 && !p.altFire && arr.length < 3) {
+  if (p.level >= 10 && !p.altFire && arr.length < 4) {
     arr.push({
       family: "AltFire" as const,
       alt: Math.random() < 0.5 ? "railgun" : "spread",
@@ -425,6 +456,24 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
       );
     }
     p.lastFireAt = now - 0 + ALT_FIRE.spread.cooldownMs;
+    return;
+  }
+
+  if (p.specialVariant === "Laser Window") {
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, true);
+    p.lastFireAt = now;
+    return;
+  }
+  if (p.specialVariant === "Twin Weapon") {
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0.1, false);
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, -0.1, false);
+    p.lastFireAt = now;
+    return;
+  }
+  if (p.specialVariant === "Omni Window") {
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, false);
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, Math.PI, false);
+    p.lastFireAt = now;
     return;
   }
 
