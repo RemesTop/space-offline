@@ -27,7 +27,7 @@ export function spawnDeathPickups(world: World, player: Player) {
     // XP value: small random in existing xpValueRange bounds (favor smaller end)
     const min = PICKUPS.xpValueRange[0];
     const max = PICKUPS.xpValueRange[1];
-    const isWhite = player.isGiant || (!player.socketId && player.level > 5);
+    const isWhite = player.isGiant || (!player.socketId && player.level >= 5);
     const value = Math.floor(rndRange(min, (min + max) / 2)) * (isWhite ? 2 : 1);
     const pu: Pickup = {
       id,

@@ -79,6 +79,7 @@ export default class GameScene extends Phaser.Scene {
   thrust = { x: 0, y: 0 };
   fireHeld = false;
   altFireHeld = false;
+  lastShootSound = 0;
 
   // camera anchor (interpolated you)
   camX = 0;
@@ -156,6 +157,9 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("SATURNUS", new URL("../assets/planeetat/SATURNUS.png", import.meta.url).toString());
     this.load.image("SUN", new URL("../assets/planeetat/SUN.png", import.meta.url).toString());
     this.load.image("VENUS", new URL("../assets/planeetat/VENUS.png", import.meta.url).toString());
+    
+    // Preload rock
+    this.load.image("rock", new URL("../assets/rock.png", import.meta.url).toString());
     // Preload rock
     this.load.image("rock", new URL("../assets/rock.png", import.meta.url).toString());
 
@@ -379,6 +383,7 @@ export default class GameScene extends Phaser.Scene {
           };
           // Wait for user to click respawn -> reload page to get fresh session
           setTimeout(() => {
+            this.levelModal.hide(); // Force hide level up modal if it was open
             document.body.classList.add("game-over");
             this.gameOverModal.show(stats);
             // Stop sending inputs
@@ -446,7 +451,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  playSynthSound(type: "shoot" | "death") {
+  playSynthSound(type: "shoot" | "death", volumeScale = 1.0) {
     if (!this.audioCtx) return;
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
     const t = this.audioCtx.currentTime;
@@ -459,16 +464,16 @@ export default class GameScene extends Phaser.Scene {
       osc.type = "square";
       osc.frequency.setValueAtTime(400, t);
       osc.frequency.exponentialRampToValueAtTime(100, t + 0.1);
-      gain.gain.setValueAtTime(0.1, t);
-      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+      gain.gain.setValueAtTime(0.1 * volumeScale, t);
+      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale, t + 0.1);
       osc.start(t);
       osc.stop(t + 0.1);
     } else {
       osc.type = "sawtooth";
       osc.frequency.setValueAtTime(100, t);
       osc.frequency.exponentialRampToValueAtTime(10, t + 0.5);
-      gain.gain.setValueAtTime(0.3, t);
-      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+      gain.gain.setValueAtTime(0.3 * volumeScale, t);
+      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale, t + 0.5);
       osc.start(t);
       osc.stop(t + 0.5);
     }
@@ -517,7 +522,7 @@ export default class GameScene extends Phaser.Scene {
     this.recon.setYouState(you);
 
     // HUD
-    this.hud.setScoreboard(s.scoreboard);
+    this.hud.setScoreboard(s.scoreboard, this.net.youId || undefined);
     if (you.maxHp) this.hud.setHP(you.hp ?? 0, you.maxHp);
     if (typeof (you as any).xp === "number" && typeof (you as any).xpToNext === "number") {
       this.hud.setXP((you as any).xp, (you as any).xpToNext);
@@ -543,9 +548,22 @@ export default class GameScene extends Phaser.Scene {
 
     // Bullets: ensure sprites now (placement each frame from interpolated entities)
     const bulletIds = new Set<string>();
+    const cx = this.cameras.main.centerX;
+    const cy = this.cameras.main.centerY;
+    const youInterp = this.interp.get(this.net.youId || "");
+    const youX = youInterp?.x || cx;
+    const youY = youInterp?.y || cy;
+
     for (const e of s.entities) {
       if (e.kind === "bullet") {
-        this.bullets.ensure(e.id, e.r, e.vx, e.vy); // Pass velocity here
+        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy); // Pass velocity here
+        if (isNew && e.ownerId !== this.net.youId && !this.gameEnded) {
+          const dist = Math.hypot(e.x - youX, e.y - youY);
+          if (dist < 1000) {
+            const vol = Math.max(0.01, 1 - dist / 1000) * 0.4;
+            this.playSynthSound("shoot", vol);
+          }
+        }
         bulletIds.add(e.id);
       }
     }
@@ -564,32 +582,58 @@ export default class GameScene extends Phaser.Scene {
     this.pickups.removeMissing(pickupIds);
 
     // Ensure all player sprites exist; tint others; update textures; clean up missing
+    const playerIds = new Set<string>();
+    const rockIds = new Set<string>();
     for (const e of s.entities) {
-      if (e.kind !== "player") continue;
-      if (!this.ships.has(e.id)) {
-        const ship = new Ship(this, { scale: 0.03, ringRadius: 18, showNose: true });
-        ship.setTint(e.id === you.id ? SELF_TINT : OTHER_TINT);
-        this.ships.set(e.id, ship);
-      }
-      
-      // Update ship textures if we have the stats
-      const ship = this.ships.get(e.id);
-      if (ship && e.maxHp && e.damage && e.maxSpeed && e.accel && e.magnetRadius && e.fireCooldownMs) {
-        ship.updateTextures({
-          maxHp: e.maxHp,
-          damage: e.damage,
-          maxSpeed: e.maxSpeed,
-          accel: e.accel,
-          magnetRadius: e.magnetRadius,
-          fireCooldownMs: e.fireCooldownMs,
-        });
+      if (e.kind === "player") {
+        playerIds.add(e.id);
+        if (!this.ships.has(e.id)) {
+          const ship = new Ship(this, { scale: 0.03, ringRadius: 18, showNose: true });
+          const tint = e.id === you.id ? SELF_TINT : (e.isGiant ? 0x555555 : OTHER_TINT);
+          ship.setTint(tint);
+          this.ships.set(e.id, ship);
+        }
+        
+        // Update ship textures if we have the stats
+        const ship = this.ships.get(e.id);
+        if (ship && e.maxHp && e.damage && e.maxSpeed && e.accel && e.magnetRadius && e.fireCooldownMs) {
+          ship.updateTextures({
+            maxHp: e.maxHp,
+            damage: e.damage,
+            maxSpeed: e.maxSpeed,
+            accel: e.accel,
+            magnetRadius: e.magnetRadius,
+            fireCooldownMs: e.fireCooldownMs,
+            hullLevel: e.powerupLevels?.Hull,
+            engineLevel: e.powerupLevels?.Engine,
+            radarLevel: e.powerupLevels?.Radar,
+            isGiant: e.isGiant,
+          });
+        }
+      } else if (e.kind === "rock") {
+        rockIds.add(e.id);
+        let rock = this.rockSprites.get(e.id);
+        if (!rock) {
+          rock = this.add.sprite(0, 0, "rock").setDepth(2);
+          this.rockSprites.set(e.id, rock);
+        }
+        if (e.r) {
+          rock.setDisplaySize(e.r * 2, e.r * 2);
+        }
       }
     }
-    const ids = new Set(s.entities.filter((e) => e.kind === "player").map((e) => e.id));
+    
     for (const [id, ship] of this.ships) {
-      if (!ids.has(id) && !this.dyingShips.has(id)) {
+      if (!playerIds.has(id) && !this.dyingShips.has(id)) {
         ship.destroy();
         this.ships.delete(id);
+      }
+    }
+
+    for (const [id, rock] of this.rockSprites) {
+      if (!rockIds.has(id)) {
+        rock.destroy();
+        this.rockSprites.delete(id);
       }
     }
 
@@ -663,12 +707,17 @@ export default class GameScene extends Phaser.Scene {
     const spaceDown = this.space?.isDown ?? false;
     this.fireHeld = spaceDown || this.touchFireHeld || this.altFireHeld;
 
-    // Play shoot sound locally when firing begins
-    if (this.fireHeld && !oldFire) {
-      const myShip = this.ships.get(this.net.youId!);
-      if (myShip) {
-        this.playSynthSound("shoot");
+    // Play shoot sound locally continuously if held
+    const currentNow = performance.now();
+    if (this.fireHeld) {
+      const youState = this.interp.get(this.net.youId || "");
+      const cooldown = (youState as any)?.fireCooldownMs || 220;
+      if (currentNow - this.lastShootSound >= cooldown) {
+        this.playSynthSound("shoot", 1.0);
+        this.lastShootSound = currentNow;
       }
+    } else {
+      this.lastShootSound = 0; // Reset so it fires immediately on next press
     }
 
     // Send input at ~40 Hz
@@ -711,8 +760,14 @@ export default class GameScene extends Phaser.Scene {
         ship.setPosition(cx + (e.x - youI.x), cy + (e.y - youI.y));
 
         if (!e.socketId && e.name) {
-          ship.setNameTag(e.name);
+          ship.setNameTag(`${e.name} - ${Math.round(e.hp || 0)}`);
         }
+
+        // Damage feedback effect
+        if (ship.lastHp !== undefined && e.hp !== undefined && e.hp < ship.lastHp && e.hp > 0) {
+          ship.playHitEffect();
+        }
+        ship.lastHp = e.hp;
 
         // Name tag coloring
         if (ship.nameTag) {
@@ -735,15 +790,15 @@ export default class GameScene extends Phaser.Scene {
               ship.setRotation(Math.atan2(e.vy, e.vx));
             }
           }
-        }
-
-        // Face their movement direction (guard tiny velocities)
-        const spd = Math.hypot(e.vx, e.vy);
-        if (spd > 0.001) {
-          // Show thruster when moving fast enough
-          ship.setThrusterVisible(spd > 50); // Show thruster if speed > 50 units
-        } else {
-          ship.setThrusterVisible(false);
+          
+          // Face their movement direction (guard tiny velocities)
+          const spd = Math.hypot(e.vx, e.vy);
+          if (spd > 0.001) {
+            // Show thruster when moving fast enough
+            ship.setThrusterVisible(spd > 50); // Show thruster if speed > 50 units
+          } else {
+            ship.setThrusterVisible(false);
+          }
         }
 
         // Handle invulnerability blinking
@@ -782,12 +837,19 @@ export default class GameScene extends Phaser.Scene {
       this.hud.setVelocity(youI.vx, youI.vy);
     }
 
-    // Bullets: place via interpolated entities
+    // Bullets and Rocks: place via interpolated entities
     if (youI) {
       for (const id of this.interp.ids()) {
         const e = this.interp.get(id)!;
         if (e.kind === "bullet") {
           this.bullets.place(id, cx + (e.x - youI.x), cy + (e.y - youI.y));
+        } else if (e.kind === "rock") {
+          const rock = this.rockSprites.get(id);
+          if (rock) {
+            rock.setPosition(cx + (e.x - youI.x), cy + (e.y - youI.y));
+            // Smoothly rotate rock instead of snapping to snapshot rotation
+            rock.rotation += (e.vx > 0 ? 0.5 : -0.5) * (delta / 1000);
+          }
         }
       }
     }
@@ -971,6 +1033,15 @@ export default class GameScene extends Phaser.Scene {
         this.explosionContainers.delete(container);
       }
     });
+
+    // Play death sound based on distance
+    if (youI) {
+      const dist = Math.hypot(worldX - youI.x, worldY - youI.y);
+      if (dist < 1500) {
+        const vol = Math.max(0.01, 1 - dist / 1500) * 0.8;
+        this.playSynthSound("death", vol);
+      }
+    }
   }
 
   /** Make ship fade and blink during death */

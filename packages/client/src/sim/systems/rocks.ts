@@ -4,35 +4,28 @@ import { rndRange } from "@shared/math.js";
 import { spawnDeathPickups } from "./deathDrops.js";
 import { PLAYER } from "@shared/constants.js";
 
-let rockSpawnAccumulator = 0;
+let rockSpawnAccumulator = 3000;
 
 export const spawnRocks = (world: World, dtMs: number) => {
   rockSpawnAccumulator += dtMs;
-  // Spawn a rock every 3 seconds, up to 15 rocks max
-  if (rockSpawnAccumulator > 3000) {
-    rockSpawnAccumulator -= 3000;
-    if (world.rocks.size < 15) {
+  // Spawn a rock every 1.5 seconds, up to 40 rocks max
+  if (rockSpawnAccumulator > 1500) {
+    rockSpawnAccumulator -= 1500;
+    if (world.rocks.size < 40) {
       const id = nanoid();
-      // More varying sizes
-      const r = rndRange(15, 120);
+      const r = rndRange(35, 75);
       
-      let x = 0, y = 0, vx = 0, vy = 0;
-
-      const side = Math.floor(Math.random() * 4);
-      const speed = rndRange(40, 150);
+      const side = Math.floor(Math.random() * 3); // 0 = bottom, 1 = left, 2 = right
       const spawnDist = 400; // spawn outside world boundary
+      const speed = rndRange(10, 40);
+      let x = 0, y = 0, vx = 0, vy = 0;
       
-      if (side === 0) { // top
-        x = rndRange(0, world.w);
-        y = -spawnDist;
-        vx = rndRange(-speed, speed);
-        vy = speed;
-      } else if (side === 1) { // bottom
+      if (side === 0) { // bottom
         x = rndRange(0, world.w);
         y = world.h + spawnDist;
         vx = rndRange(-speed, speed);
         vy = -speed;
-      } else if (side === 2) { // left
+      } else if (side === 1) { // left
         x = -spawnDist;
         y = rndRange(0, world.h);
         vx = speed;
@@ -47,21 +40,6 @@ export const spawnRocks = (world: World, dtMs: number) => {
       world.rocks.set(id, { id, x, y, vx, vy, r, rotation: Math.random() * Math.PI * 2 });
     }
   }
-};
-
-export const updateRocks = (world: World, dtSec: number) => {
-  const toDelete = [];
-  for (const rock of world.rocks.values()) {
-    rock.x += rock.vx * dtSec;
-    rock.y += rock.vy * dtSec;
-    rock.rotation = (rock.rotation || 0) + (rock.vx > 0 ? 0.5 : -0.5) * dtSec;
-    
-    // Despawn if they get extremely far from the map (clean up)
-    if (rock.x < -2000 || rock.x > world.w + 2000 || rock.y < -2000 || rock.y > world.h + 2000) {
-      toDelete.push(rock.id);
-    }
-  }
-  for (const id of toDelete) world.rocks.delete(id);
 };
 
 export const handleRockCollisions = (world: World, now: number) => {
@@ -139,4 +117,11 @@ export const handleRockCollisions = (world: World, now: number) => {
     }
   }
   for (const id of bulletsToRemove) world.bullets.delete(id);
+
+  // Cleanup distant rocks so they can respawn
+  for (const [id, r] of world.rocks) {
+    if (r.x < -2000 || r.x > world.w + 2000 || r.y < -2000 || r.y > world.h + 2000) {
+      world.rocks.delete(id);
+    }
+  }
 };

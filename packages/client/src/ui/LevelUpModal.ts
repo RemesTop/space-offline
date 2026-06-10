@@ -123,7 +123,7 @@ export class LevelUpModal {
       {
         family: "Magnet" as const,
         currentLevel: magnetLevel,
-        desc: `+30 pickup radius (Current: ${magnetRadius})` // Updated to match server
+        desc: `+40 pickup radius (Current: ${magnetRadius})` // Updated to match server
       },
       {
         family: "Radar" as const,

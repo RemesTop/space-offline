@@ -27,6 +27,7 @@ export default class Ship {
   worldX?: number;
   worldY?: number;
   nameTag?: Phaser.GameObjects.Text;
+  lastHp?: number;
 
   constructor(scene: Phaser.Scene, opts: ShipOpts = {}) {
     this.scene = scene;
@@ -175,14 +176,16 @@ export default class Ship {
     accel: number;
     magnetRadius: number;
     fireCooldownMs: number;
+    engineLevel?: number;
+    radarLevel?: number;
     hullLevel?: number;
     isGiant?: boolean;
   }) {
-    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, isGiant } = stats;
+    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, radarLevel, isGiant } = stats;
 
-    // Body texture based on HP - changes at level 2 (120HP), then level 5 (140HP)
-    // Level 1: 100HP (texture 0), Level 2+: 120HP+ (texture 1), Level 5+: 140HP+ (texture 2)
-    const bodyLevel = maxHp <= 125 ? 0 : maxHp < 140 ? 1 : 2;
+    // Body texture based on HP - changes at level 2 (120HP), then level 5 (180HP)
+    // Level 1: 100HP (texture 0), Level 2+: 120HP+ (texture 1), Level 5+: 180HP+ (texture 2)
+    const bodyLevel = maxHp <= 100 ? 0 : maxHp < 180 ? 1 : 2;
     this.body.setTexture(`raketti/body${bodyLevel}.png`);
 
     // Weapon texture based on fire cooldown - changes at level 2, then level 5
@@ -196,8 +199,8 @@ export default class Ship {
     this.point.setTexture(`raketti/point${pointLevel}.png`);
 
     // Wings texture based on acceleration - changes at level 2, then level 5
-    // Level 1: 700 accel (texture 0), Level 2+: 740+ accel (texture 1), Level 5+: 820+ accel (texture 2)
-    const wingsLevel = accel <= 700 ? 0 : accel < 820 ? 1 : 2;
+    // Level 1: 850 accel (texture 0), Level 2+: 930+ accel (texture 1), Level 5+: 1000+ accel (texture 2)
+    const wingsLevel = accel <= 850 ? 0 : accel < 1000 ? 1 : 2;
     this.wings.setTexture(`raketti/wings${wingsLevel}.png`);
 
     // Window texture based on magnet radius - changes at level 2, then level 5
@@ -207,8 +210,10 @@ export default class Ship {
 
     // Scale ship based on hull level and giant status
     if (hullLevel !== undefined) {
-      const giantMultiplier = isGiant ? 1.2 : 1.0;
-      const newScale = this._scale * giantMultiplier * (1 + 0.15 * hullLevel + 0.06 * wingsLevel);
+      const giantMultiplier = isGiant ? 1.3 : 1.0;
+      const safeEngine = engineLevel || 0;
+      const safeRadar = radarLevel || 0;
+      const newScale = this._scale * giantMultiplier * (1 + 0.15 * hullLevel + 0.05 * safeEngine + 0.03 * safeRadar);
       this.body.setScale(newScale);
       this.wings.setScale(newScale);
       this.window.setScale(newScale);

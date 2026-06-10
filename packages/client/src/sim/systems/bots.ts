@@ -41,7 +41,9 @@ const BOT_NAMES = [
 
 export type Bot = {
   playerId: string;
-  target?: { x: number; y: number };
+  targetX?: number;
+  targetY?: number;
+  shouldFire?: boolean;
   lastThinkAt: number;
   aggressiveness: number; // 0-1, how likely to seek players vs pickups
   aimOffset: number; // aim error in radians
@@ -64,9 +66,9 @@ export const spawnBot = (world: World): void => {
   const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
   player.name = botName;
 
-  // Give bot 0 to 2 random upgrades
+  // Give bot 0 to 2 random upgrades (rarely)
   const families: PowerupFamily[] = ["Hull", "Damage", "Engine", "FireRate", "Radar"];
-  const numUpgrades = Math.floor(Math.random() * 3); // 0 to 2
+  const numUpgrades = Math.random() < 0.2 ? Math.floor(Math.random() * 2) + 1 : 0; // 20% chance for 1 or 2 upgrades
   for (let i = 0; i < numUpgrades; i++) {
     player.pendingOffer = true;
     const randomFamily = families[Math.floor(Math.random() * families.length)];
@@ -110,117 +112,116 @@ export const updateBots = (world: World, now: number): void => {
       continue;
     }
 
-    // AI thinking interval
-    if (now - bot.lastThinkAt < THINK_INTERVAL) continue;
-    bot.lastThinkAt = now;
+    // AI thinking interval - update targets every 200ms
+    if (now - bot.lastThinkAt >= THINK_INTERVAL) {
+      bot.lastThinkAt = now;
 
-    // Find targets
-    const nearbyPlayers = Array.from(world.players.values())
-      .filter(p => p.id !== botId && (!p.deadUntil || now >= p.deadUntil) && p.hp > 0)
-      .map(p => ({
-        player: p,
-        dist: Math.hypot(p.x - player.x, p.y - player.y)
-      }))
-      .filter(({ dist }) => dist < 400) // Only consider nearby players
-      .sort((a, b) => a.dist - b.dist);
+      // Find targets
+      const nearbyPlayers = Array.from(world.players.values())
+        .filter(p => p.id !== botId && (!p.deadUntil || now >= p.deadUntil) && p.hp > 0)
+        .map(p => ({
+          player: p,
+          dist: Math.hypot(p.x - player.x, p.y - player.y)
+        }))
+        .filter(({ dist }) => dist < 400)
+        .sort((a, b) => a.dist - b.dist);
 
-    const nearbyPickups = Array.from(world.pickups.values())
-      .map(p => ({
-        pickup: p,
-        dist: Math.hypot(p.x - player.x, p.y - player.y)
-      }))
-      .filter(({ dist }) => dist < 500) // Wider pickup search radius
-      .sort((a, b) => {
-        // If low HP, strongly prioritize health pickups
-        if (player.hp < player.maxHp * 0.5) {
-          if (a.pickup.type === "hp" && b.pickup.type !== "hp") return -1;
-          if (b.pickup.type === "hp" && a.pickup.type !== "hp") return 1;
+      const nearbyPickups = Array.from(world.pickups.values())
+        .map(p => ({
+          pickup: p,
+          dist: Math.hypot(p.x - player.x, p.y - player.y)
+        }))
+        .filter(({ dist }) => dist < 500)
+        .sort((a, b) => {
+          if (player.hp < player.maxHp * 0.5) {
+            if (a.pickup.type === "hp" && b.pickup.type !== "hp") return -1;
+            if (b.pickup.type === "hp" && a.pickup.type !== "hp") return 1;
+          }
+          return a.dist - b.dist;
+        });
+
+      bot.targetX = player.x;
+      bot.targetY = player.y;
+      bot.shouldFire = false;
+
+      let avoidX = 0;
+      let avoidY = 0;
+      for (const well of world.wells) {
+        const dx = player.x - well.x;
+        const dy = player.y - well.y;
+        const dist = Math.hypot(dx, dy);
+        const dangerRadius = well.radius + 80;
+
+        if (dist < dangerRadius && dist > 1) {
+          const strength = (dangerRadius - dist) / dangerRadius;
+          avoidX += (dx / dist) * strength * 300;
+          avoidY += (dy / dist) * strength * 300;
         }
-        return a.dist - b.dist;
-      });
-
-    // Decide target based on aggressiveness and what's available
-    let targetX = player.x;
-    let targetY = player.y;
-    let shouldFire = false;
-
-    // Check for nearby planets to avoid
-    let avoidX = 0;
-    let avoidY = 0;
-    for (const well of world.wells) {
-      const dx = player.x - well.x;
-      const dy = player.y - well.y;
-      const dist = Math.hypot(dx, dy);
-      const dangerRadius = well.radius + 80; // start avoiding before collision
-
-      if (dist < dangerRadius && dist > 1) {
-        // Push away from planet — stronger when closer
-        const strength = (dangerRadius - dist) / dangerRadius;
-        avoidX += (dx / dist) * strength * 300;
-        avoidY += (dy / dist) * strength * 300;
       }
-    }
 
-    const isAvoidingPlanet = Math.hypot(avoidX, avoidY) > 20;
+      const isAvoidingPlanet = Math.hypot(avoidX, avoidY) > 20;
 
-    if (isAvoidingPlanet) {
-      // Priority: avoid planets
-      targetX = player.x + avoidX;
-      targetY = player.y + avoidY;
-    } else if (nearbyPlayers.length > 0 && Math.random() < bot.aggressiveness) {
-      // Target nearest player
-      const target = nearbyPlayers[0].player;
-      targetX = target.x;
-      targetY = target.y;
+      const isLowHealth = player.hp < player.maxHp * 0.35;
 
-      const dx = targetX - player.x;
-      const dy = targetY - player.y;
-      const targetAim = Math.atan2(dy, dx);
-      let aimDiff = targetAim - bot.currentAim;
-      while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
-      while (aimDiff < -Math.PI) aimDiff += Math.PI * 2;
+      if (isAvoidingPlanet) {
+        bot.targetX = player.x + avoidX;
+        bot.targetY = player.y + avoidY;
+      } else if (isLowHealth && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500) {
+        // Flee from nearest player
+        const target = nearbyPlayers[0].player;
+        bot.targetX = player.x + (player.x - target.x);
+        bot.targetY = player.y + (player.y - target.y);
+        bot.shouldFire = false;
+      } else if (nearbyPlayers.length > 0 && Math.random() < bot.aggressiveness && !isLowHealth) {
+        const target = nearbyPlayers[0].player;
+        bot.targetX = target.x;
+        bot.targetY = target.y;
 
-      // Fire only if target is within 60 degrees (pi/3) of forward facing
-      shouldFire = nearbyPlayers[0].dist < 250 && Math.abs(aimDiff) <= Math.PI / 3;
-    } else if (nearbyPickups.length > 0) {
-      // Target nearest pickup (or HP pickup if low health)
-      const target = nearbyPickups[0].pickup;
-      targetX = target.x;
-      targetY = target.y;
-    } else {
-      // Wander towards center or random direction
-      const centerX = world.w / 2;
-      const centerY = world.h / 2;
-      const toCenterDist = Math.hypot(centerX - player.x, centerY - player.y);
+        const dx = bot.targetX - player.x;
+        const dy = bot.targetY - player.y;
+        const targetAim = Math.atan2(dy, dx);
+        let aimDiff = targetAim - bot.currentAim;
+        while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
+        while (aimDiff < -Math.PI) aimDiff += Math.PI * 2;
 
-      if (toCenterDist > 300) {
-        targetX = centerX + rndRange(-200, 200);
-        targetY = centerY + rndRange(-200, 200);
+        bot.shouldFire = nearbyPlayers[0].dist < 250 && Math.abs(aimDiff) <= Math.PI / 3;
+      } else if (nearbyPickups.length > 0) {
+        const target = nearbyPickups[0].pickup;
+        bot.targetX = target.x;
+        bot.targetY = target.y;
       } else {
-        targetX = player.x + rndRange(-200, 200);
-        targetY = player.y + rndRange(-200, 200);
+        const centerX = world.w / 2;
+        const centerY = world.h / 2;
+        const toCenterDist = Math.hypot(centerX - player.x, centerY - player.y);
+
+        if (toCenterDist > 300) {
+          bot.targetX = centerX + rndRange(-200, 200);
+          bot.targetY = centerY + rndRange(-200, 200);
+        } else {
+          bot.targetX = player.x + rndRange(-200, 200);
+          bot.targetY = player.y + rndRange(-200, 200);
+        }
       }
+
+      bot.targetX = Math.max(50, Math.min(world.w - 50, bot.targetX));
+      bot.targetY = Math.max(50, Math.min(world.h - 50, bot.targetY));
     }
 
-    // Clamp target to world bounds with margin
-    targetX = Math.max(50, Math.min(world.w - 50, targetX));
-    targetY = Math.max(50, Math.min(world.h - 50, targetY));
+    if (bot.targetX === undefined || bot.targetY === undefined) continue;
 
-    // Calculate aim — no aimOffset for accurate shooting
-    const dx = targetX - player.x;
-    const dy = targetY - player.y;
+    const dx = bot.targetX - player.x;
+    const dy = bot.targetY - player.y;
     const dist = Math.hypot(dx, dy);
-
     const targetAim = Math.atan2(dy, dx);
 
-    // Smoothly rotate currentAim towards targetAim (same turn speed as player)
     let aimDiff = targetAim - bot.currentAim;
     while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
     while (aimDiff < -Math.PI) aimDiff += Math.PI * 2;
 
     const radarLvl = player.powerupLevels?.Radar || 0;
-    const turnSpeed = 4.0 + (radarLvl * 0.5); // matching player turn speed
-    const maxTurn = turnSpeed * (THINK_INTERVAL / 1000);
+    const turnSpeed = 2.0 + (radarLvl * 0.25);
+    // 33ms simulated dt for steering every tick
+    const maxTurn = turnSpeed * (33 / 1000);
 
     if (Math.abs(aimDiff) <= maxTurn) {
       bot.currentAim = targetAim;
@@ -228,25 +229,21 @@ export const updateBots = (world: World, now: number): void => {
       bot.currentAim += Math.sign(aimDiff) * maxTurn;
     }
 
-    // Normalize currentAim
     while (bot.currentAim > Math.PI) bot.currentAim -= Math.PI * 2;
     while (bot.currentAim < -Math.PI) bot.currentAim += Math.PI * 2;
 
     let thrust = { x: 0, y: 0 };
-
-    // Thrust forward if target is far enough and we are roughly facing it
     if (dist > 30 && Math.abs(aimDiff) < Math.PI / 3) {
       thrust.x = Math.cos(bot.currentAim);
       thrust.y = Math.sin(bot.currentAim);
     }
 
-    // Generate bot input — aim = currentAim so they fire forward
     const input = {
       seq: Math.floor(now / 25),
       aim: bot.currentAim,
       thrust,
-      fire: shouldFire,
-      dtMs: THINK_INTERVAL,
+      fire: bot.shouldFire || false,
+      dtMs: 33,
     };
 
     queueInput(world, botId, input);

@@ -3,6 +3,7 @@ type Bars = { hp: HTMLDivElement; xp: HTMLDivElement };
 export class HUD {
   root: HTMLDivElement;
   bars: Bars;
+  hpText: HTMLSpanElement;
   board: HTMLDivElement;
   powerupsPanel: HTMLDivElement;
   velocityPanel: HTMLDivElement;
@@ -14,7 +15,7 @@ export class HUD {
 
     const hp = document.createElement("div");
     hp.className = "bar hp";
-    hp.innerHTML = "<div style='width:100%'></div>";
+    hp.innerHTML = "<div style='width:100%'></div><span class='hp-text'></span>";
     const xp = document.createElement("div");
     xp.className = "bar xp";
     xp.innerHTML = "<div style='width:0%'></div>";
@@ -49,12 +50,16 @@ export class HUD {
       hp: hp.firstElementChild as HTMLDivElement,
       xp: xp.firstElementChild as HTMLDivElement,
     };
+    this.hpText = hp.querySelector('.hp-text') as HTMLSpanElement;
     this.board = board;
   }
 
   setHP(hp: number, max: number) {
     const pct = Math.max(0, Math.min(1, hp / max)) * 100;
     this.bars.hp.style.width = `${pct}%`;
+    if (this.hpText) {
+      this.hpText.textContent = `${Math.round(hp)} / ${Math.round(max)}`;
+    }
   }
 
   setXP(xp: number, toNext: number) {
@@ -132,7 +137,7 @@ export class HUD {
       { name: "Damage", level: Math.round((damage - baseDamage) / 4) },
       { name: "Engine", level: Math.round((accel - baseAccel) / 80) },
       { name: "FireRate", level: Math.round((baseFireRate - fireCooldownMs) / 25) },
-      { name: "Magnet", level: Math.round((magnetRadius - baseMagnet) / 30) },
+      { name: "Magnet", level: Math.round((magnetRadius - baseMagnet) / 40) },
       { name: "Radar", level: stats.powerupLevels?.Radar || 0 },
     ];
     return raw.map(r => ({ ...r, level: Math.max(0, Math.min(5, r.level)) }));

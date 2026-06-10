@@ -87,12 +87,26 @@ body,
   pointer-events: none;
 }
 .bar {
+  position: relative;
   width: 36vw;
   max-width: 520px;
   height: 12px;
   border-radius: 8px;
   background: #1a2234;
   border: 1px solid #2b3452;
+}
+.hp-text {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  top: -3px;
+  left: 0;
+  font-size: 13px;
+  font-weight: bold;
+  font-family: monospace;
+  color: #ffffff;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0px 2px 4px rgba(0,0,0,0.8);
+  pointer-events: none;
 }
 .bar > div {
   height: 100%;

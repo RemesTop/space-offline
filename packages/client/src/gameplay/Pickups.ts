@@ -12,6 +12,10 @@ interface StardustParticle {
   baseY: number;
   oscA: number;
   oscR: number;
+  color: number;
+  glow: number;
+  glowR: number;
+  starR: number;
 }
 
 export default class Pickups {
@@ -28,8 +32,8 @@ export default class Pickups {
       if (!this.byId.has(id)) {
         const container = this.scene.add.container(0, 0).setDepth(2);
         const particles: StardustParticle[] = [];
-        const count = type === "xp-giant" ? 15 : 9; // even more particles for giant
-        const maxRadius = type === "xp-giant" ? 24 : 16;
+        const count = type === "xp-giant" ? 22 : 9; // many more particles for giant
+        const maxRadius = type === "xp-giant" ? 35 : 16;
         for (let i = 0; i < count; i++) {
           const t = Math.pow(Math.random(), 1.2); // slightly less bias for more spread
           const r = maxRadius * t;
@@ -38,19 +42,19 @@ export default class Pickups {
           const y = Math.sin(a) * r;
           const gfx = this.scene.add.graphics({ x, y });
           
-          let color = 0xffe066; // warm yellow
+          let color = 0xFFFBEA; // warm yellow/white (base)
           let glow = 0xfff7b2; // soft outer glow
           if (type === "xp-giant") {
-            color = 0xffffff; // white
-            glow = 0xe0e0e0; // light gray glow
+            color = 0xffeccc; // slightly warmer core
+            glow = 0xff7744; // soft orange-red outer glow
           }
 
           // Draw glow
-          gfx.fillStyle(glow, 0.25);
-          gfx.fillCircle(0, 0, type === "xp-giant" ? 10 : 8);
+          gfx.fillStyle(glow, type === "xp-giant" ? 0.4 : 0.25);
+          gfx.fillCircle(0, 0, type === "xp-giant" ? 14 : 8);
           // Draw main star
           gfx.fillStyle(color, 1);
-          gfx.fillCircle(0, 0, (type === "xp-giant" ? 3.5 : 2.5) + Math.random() * 2);
+          gfx.fillCircle(0, 0, (type === "xp-giant" ? 5 : 2.5) + Math.random() * 2);
           container.add(gfx);
           particles.push({
             gfx,
@@ -61,6 +65,10 @@ export default class Pickups {
             baseY: y,
             oscA: Math.random() * Math.PI * 2,
             oscR: 1.2 + Math.random() * 2.2, // more movement
+            color,
+            glow,
+            glowR: type === "xp-giant" ? 14 : 8,
+            starR: (type === "xp-giant" ? 5 : 2.5) + Math.random() * 2,
           });
         }
         container.setAlpha(0);
@@ -113,11 +121,11 @@ export default class Pickups {
         const alpha = Phaser.Math.Clamp(p.baseAlpha + twinkle, 0.5, 1.2);
         p.gfx.clear();
         // Glow
-        p.gfx.fillStyle(0xfff7b2, .5 * alpha);
-        p.gfx.fillCircle(0, 0, 6);
+        p.gfx.fillStyle(p.glow, (p.glowR > 8 ? 0.4 : 0.25) * alpha);
+        p.gfx.fillCircle(0, 0, p.glowR);
         // Main star
-        p.gfx.fillStyle(0xFFFBEA, alpha);
-        p.gfx.fillCircle(0, 0, 2.5);
+        p.gfx.fillStyle(p.color, alpha);
+        p.gfx.fillCircle(0, 0, p.starR);
         // Oscillate around base position, but do not drift
         const osc = Math.sin(time * 0.002 + p.oscA) * p.oscR;
         p.gfx.x = p.baseX + Math.cos(p.oscA) * osc;

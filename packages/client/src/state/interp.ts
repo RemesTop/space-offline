@@ -20,11 +20,16 @@ export class Interp {
     const curr = this.current.get(id);
     if (!prev || !curr) return curr ?? prev;
     const a = this.alpha;
-    const res = {
+    const res: any = {
       ...curr,
       x: prev.x + (curr.x - prev.x) * a,
       y: prev.y + (curr.y - prev.y) * a,
     };
+    if ((prev as any).aim !== undefined && (curr as any).aim !== undefined) {
+      let diff = (curr as any).aim - (prev as any).aim;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      res.aim = (prev as any).aim + diff * a;
+    }
     return res;
   }
 

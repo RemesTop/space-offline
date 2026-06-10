@@ -126,7 +126,7 @@ export const ServerEventSchema = z.discriminatedUnion("type", [
     playerId: z.string(),
     pickupId: z.string(),
     value: z.number(),
-    kind: z.enum(["xp", "hp"]),
+    kind: z.enum(["xp", "hp", "xp-giant"]),
   }),
   z.object({
     type: z.literal("LevelUpOffer"),

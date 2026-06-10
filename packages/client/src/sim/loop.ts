@@ -8,7 +8,7 @@ import { getScoreboard } from "./systems/scoreboard.js";
 import { spawnBot, updateBots, cleanupBots, getBotCount } from "./systems/bots.js";
 import { updatePlanetMovement } from "./systems/planetMovement.js";
 import { handlePlayerCollisions } from "./systems/playerCollisions.js";
-import { spawnRocks, updateRocks, handleRockCollisions } from "./systems/rocks.js";
+import { spawnRocks, handleRockCollisions } from "./systems/rocks.js";
 
 // Basic performance metrics (can be expanded later)
 let movingAvgTickMs = 0;
@@ -86,7 +86,6 @@ function doSimTick(io: LocalEmitter, world: World, dt: number, nowMs: number) {
   processInputs(world, now);
   
   spawnRocks(world, dt * 1000);
-  updateRocks(world, dt);
   
   applyGravity(world, dt);
   integrate(world, dt);

@@ -13,8 +13,18 @@ export const addPlayer = (
   pos: { x: number; y: number },
   socketId: string,
 ): Player => {
+  // Check if any human player is level 10 or above
+  let hasHighLevelPlayer = false;
+  for (const player of world.players.values()) {
+    if (player.socketId && player.level >= 10) {
+      hasHighLevelPlayer = true;
+      break;
+    }
+  }
+
   // Only bots (socketId is empty) can be giants
-  const isGiant = (!socketId) && Math.random() < 0.15;
+  const giantChance = hasHighLevelPlayer ? 0.15 : 0.05;
+  const isGiant = (!socketId) && Math.random() < giantChance;
   const p: Player = {
     id,
     socketId,
@@ -228,7 +238,7 @@ export const applyLevelChoice = (
   } else if (choice.family === "Magnet" && choice.tier) {
     if (p.powerupLevels.Magnet < 5) {
       p.powerupLevels.Magnet++;
-      p.magnetRadius += 45;
+      p.magnetRadius += 40;
     }
   } else if (choice.family === "Radar" && choice.tier) {
     if (p.powerupLevels.Radar < 5) {
@@ -469,10 +479,15 @@ export const spawnPickupsIfNeeded = (world: World) => {
   if (world.pickups.size < PICKUPS.targetCount && (world as any).pickupSpawnTimer >= 0.5) {
     (world as any).pickupSpawnTimer = 0;
     const id = nanoid();
-    const type = Math.random() < PICKUPS.hpOrbChance ? "hp" : "xp";
+    let type: "hp" | "xp" | "xp-giant" = Math.random() < PICKUPS.hpOrbChance ? "hp" : "xp";
+    if (type === "xp" && Math.random() < 0.05) {
+      type = "xp-giant";
+    }
     const value =
       type === "hp"
         ? PICKUPS.hpOrbValue
+        : type === "xp-giant"
+        ? Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1])) * 2
         : Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1]));
     const p: Pickup = {
       id,
@@ -507,7 +522,7 @@ export const collectPickups = (world: World) => {
       const rad = p.r + pu.r;
       if (d2 < rad * rad) {
         world.pickups.delete(k);
-        if (pu.type === "xp") giveXP(world, p, pu.value);
+        if (pu.type === "xp" || pu.type === "xp-giant") giveXP(world, p, pu.value);
         else p.hp = Math.min(p.maxHp + p.shield, p.hp + pu.value);
         world.io?.emitEvent(p.socketId, {
           type: "Pickup",

@@ -18,8 +18,8 @@ export class NamePrompt {
       <div class="start-header">
         <h1 class="start-title">Space IO</h1>
         <div class="start-controls" style="margin-top: 12px; font-size: 13px; color: #8aa2c7; line-height: 1.6;">
-          <span style="display:inline-block; margin:0 8px;">⌨️ <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">WASD</kbd> to move</span>
-          <span style="display:inline-block; margin:0 8px;">🖱️ <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Space</kbd> / <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Mouse 1</kbd> to shoot</span>
+          <span style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">WASD</kbd> to move your ship</span>
+          <span style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Space</kbd> or <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Mouse 1</kbd> to shoot</span>
         </div>
       </div>
       <form class="name-form" autocomplete="off">
@@ -79,12 +79,12 @@ export class NamePrompt {
 
   private makeRandomName(): string {
     const adjectives = [
-      'Nova','Solar','Quantum','Void','Hyper','Luminous','Crimson','Silent','Ion','Eclipse','Vortex','Fractal','Nebula','Prism','Fusion'
+      'Nova', 'Solar', 'Quantum', 'Void', 'Hyper', 'Luminous', 'Crimson', 'Silent', 'Ion', 'Eclipse', 'Vortex', 'Fractal', 'Nebula', 'Prism', 'Fusion'
     ];
     const nouns = [
-      'Rider','Pilot','Drifter','Runner','Falcon','Ghost','Warden','Comet','Ranger','Specter','Vector','Nomad','Hermes','Forge','Spark'
+      'Rider', 'Pilot', 'Drifter', 'Runner', 'Falcon', 'Ghost', 'Warden', 'Comet', 'Ranger', 'Specter', 'Vector', 'Nomad', 'Hermes', 'Forge', 'Spark'
     ];
-    return `${adjectives[Math.floor(Math.random()*adjectives.length)]} ${nouns[Math.floor(Math.random()*nouns.length)]}`;
+    return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
   }
 
   private updateCounter() {

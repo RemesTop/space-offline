@@ -115,6 +115,33 @@ export const applyGravity = (world: World, dt: number) => {
       b.vy += ay * dt;
     }
   }
+  for (const r of world.rocks.values()) {
+    for (const w of world.wells) {
+      const dx = w.x - r.x;
+      const dy = w.y - r.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > w.influenceRadius * w.influenceRadius) continue;
+      const force = Math.min((GRAVITY.G * w.mass) / (d2 + GRAVITY.epsilon), w.maxPull);
+      const d = Math.sqrt(d2) || 1;
+      // Rocks are affected by gravity, but less so than players
+      const ax = (dx / d) * force * 0.4;
+      const ay = (dy / d) * force * 0.4;
+      r.vx += ax * dt;
+      r.vy += ay * dt;
+
+      // Optional: hard collision with planets for rocks?
+      if (w.type === "planet" && d < w.radius + r.r) {
+         const nx = dx / d, ny = dy / d;
+         const vDotN = r.vx * nx + r.vy * ny;
+         if (vDotN < 0) {
+           r.vx -= 1.8 * vDotN * nx;
+           r.vy -= 1.8 * vDotN * ny;
+         }
+         r.x = w.x - nx * (w.radius + r.r + 1);
+         r.y = w.y - ny * (w.radius + r.r + 1);
+      }
+    }
+  }
 };
 
 export const integrate = (world: World, dt: number) => {
@@ -149,6 +176,17 @@ export const integrate = (world: World, dt: number) => {
     b.x += b.vx * dt;
     b.y += b.vy * dt;
   }
+  const toDeleteRocks = [];
+  for (const rock of world.rocks.values()) {
+    rock.x += rock.vx * dt;
+    rock.y += rock.vy * dt;
+    rock.rotation = (rock.rotation || 0) + (rock.vx > 0 ? 0.5 : -0.5) * dt;
+
+    if (rock.x < -2000 || rock.x > world.w + 2000 || rock.y < -2000 || rock.y > world.h + 2000) {
+      toDeleteRocks.push(rock.id);
+    }
+  }
+  for (const id of toDeleteRocks) world.rocks.delete(id);
 };
 
 export const bulletHits = (world: World, dt: number, now: number) => {
@@ -160,7 +198,7 @@ export const bulletHits = (world: World, dt: number, now: number) => {
       continue;
     }
     for (const p of world.players.values()) {
-      if (p.id === b.ownerId) continue;
+      if (p.hp <= 0 || p.id === b.ownerId) continue;
       const r = p.r + b.r;
       if (dist2({ x: b.x, y: b.y }, { x: p.x, y: p.y }) < r * r) {
         if (now < p.invulnUntil) {

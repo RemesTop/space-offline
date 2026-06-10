@@ -19,15 +19,17 @@ export default class Projectiles {
 
   // Create sprite if missing (radius can change)
   // Add velocity parameters
-  ensure(id: string, r: number, vx: number, vy: number) {
+  ensure(id: string, r: number, vx: number, vy: number): boolean {
     let data = this.byId.get(id);
     if (!data) {
       const sprite = this.scene.add.circle(0, 0, r, 0xffe066).setDepth(5);
       this.byId.set(id, { sprite, vx, vy });
+      return true;
     } else {
       data.sprite.setRadius(r);
       data.vx = vx;
       data.vy = vy;
+      return false;
     }
   }
 
