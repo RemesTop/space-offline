@@ -76,6 +76,7 @@ export type Bot = {
   aimOffset: number; // aim error in radians
   currentAim: number; // current aim angle
   personality: BotPersonality;
+  decelUntil?: number; // timestamp to stop decelerating
 };
 
 const bots = new Map<string, Bot>();
@@ -96,30 +97,39 @@ export const spawnBot = (world: World): void => {
     }
   }
 
-  if (maxPlayerLevel >= 15) {
+  const targetLevel = Math.max(1, maxPlayerLevel > 8 ? maxPlayerLevel - 8 + Math.floor(Math.random() * 5) : 1);
+  player.level = targetLevel;
+  player.xp = 0; // reset xp
+
+  if (targetLevel > 1) {
     if (player.isGiant) {
-      player.maxHp += 100;
+      player.maxHp += (targetLevel - 1) * 30;
       player.hp = player.maxHp;
     } else {
-      player.maxHp += 50;
+      player.maxHp += (targetLevel - 1) * 15;
       player.hp = player.maxHp;
     }
-    for (let i = 0; i < 2; i++) {
+    
+    // Give them an appropriate number of upgrades
+    const numUpgrades = targetLevel - 1;
+    for (let i = 0; i < numUpgrades; i++) {
       const upgradeRnd = Math.random();
-      if (upgradeRnd < 0.25) {
+      if (upgradeRnd < 0.25 && player.powerupLevels.Damage < 4) {
         player.powerupLevels.Damage++;
         player.damage += 2;
-      } else if (upgradeRnd < 0.5) {
+      } else if (upgradeRnd < 0.5 && player.powerupLevels.Engine < 4) {
         player.powerupLevels.Engine++;
         player.maxSpeed += 40;
         player.accel += 80;
-      } else if (upgradeRnd < 0.75) {
+      } else if (upgradeRnd < 0.75 && player.powerupLevels.FireRate < 4) {
         player.powerupLevels.FireRate++;
         player.fireCooldownMs = Math.max(100, player.fireCooldownMs - 15);
-      } else {
+      } else if (player.powerupLevels.Hull < 4) {
         player.powerupLevels.Hull++;
         player.maxHp += 20;
         player.hp += 20;
+      } else if (player.powerupLevels.Wings < 4) {
+        player.powerupLevels.Wings++;
       }
     }
   }
@@ -249,12 +259,23 @@ export const updateBots = (world: World, now: number): void => {
           const dx = player.x - well.x;
           const dy = player.y - well.y;
           const dist = Math.hypot(dx, dy);
-          const dangerRadius = well.radius + 80;
+          const isAggressive = bot.personality === "Aggressive" || bot.personality === "Pro";
+          const baseDangerRadius = isAggressive ? 80 : 200;
+          const baseStrength = isAggressive ? 300 : 600;
+          
+          const dangerRadius = well.radius + baseDangerRadius;
 
           if (dist < dangerRadius && dist > 1) {
             const strength = (dangerRadius - dist) / dangerRadius;
-            avoidX += (dx / dist) * strength * 300;
-            avoidY += (dy / dist) * strength * 300;
+            
+            // Push away
+            avoidX += (dx / dist) * Math.pow(strength, 0.5) * baseStrength * 0.7;
+            avoidY += (dy / dist) * Math.pow(strength, 0.5) * baseStrength * 0.7;
+
+            // Orbit/Slingshot vector
+            const orbitDir = (well.x + well.y) % 2 === 0 ? 1 : -1;
+            avoidX += (-dy / dist) * orbitDir * Math.pow(strength, 0.5) * baseStrength * 0.5;
+            avoidY += (dx / dist) * orbitDir * Math.pow(strength, 0.5) * baseStrength * 0.5;
           }
         }
       }
@@ -275,34 +296,47 @@ export const updateBots = (world: World, now: number): void => {
         }
       }
 
-      const isAvoidingPlanet = Math.hypot(avoidX, avoidY) > 20;
-
       const healthThreshold = bot.personality === "Cowardly" ? 0.60 : 0.35;
       const isLowHealth = player.hp < player.maxHp * healthThreshold;
 
       const prioritizedHpPickup = bot.personality === "Pro" && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500 && nearbyPickups.length > 0 && nearbyPickups[0].pickup.type === "hp";
 
-      if (isAvoidingPlanet) {
-        bot.targetX = player.x + avoidX;
-        bot.targetY = player.y + avoidY;
-      } else if (isLowHealth && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500) {
+      let desiredDx = 0;
+      let desiredDy = 0;
+
+      if (isLowHealth && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500) {
         // Flee from nearest player
         const target = nearbyPlayers[0].player;
-        bot.targetX = player.x + (player.x - target.x);
-        bot.targetY = player.y + (player.y - target.y);
+        const fleeDx = player.x - target.x;
+        const fleeDy = player.y - target.y;
+        
+        // Add strafing to fleeing
+        const strafeDir = Math.random() > 0.5 ? 1 : -1;
+        const strafeX = -fleeDy * strafeDir * 0.7;
+        const strafeY = fleeDx * strafeDir * 0.7;
+        
+        desiredDx = fleeDx + strafeX;
+        desiredDy = fleeDy + strafeY;
         bot.shouldFire = false;
+
+        // Random deceleration to confuse aim (duration based)
+        if (!bot.decelUntil && Math.random() < 0.02) { 
+          bot.decelUntil = now + rndRange(200, 600);
+        }
+        if (bot.decelUntil && now < bot.decelUntil) {
+          desiredDx = 0;
+          desiredDy = 0;
+        }
       } else if (prioritizedHpPickup) {
         const target = nearbyPickups[0].pickup;
-        bot.targetX = target.x;
-        bot.targetY = target.y;
+        desiredDx = target.x - player.x;
+        desiredDy = target.y - player.y;
       } else if (nearbyPlayers.length > 0 && Math.random() < bot.aggressiveness && !isLowHealth) {
         const target = nearbyPlayers[0].player;
-        bot.targetX = target.x;
-        bot.targetY = target.y;
+        desiredDx = target.x - player.x;
+        desiredDy = target.y - player.y;
 
-        const dx = bot.targetX - player.x;
-        const dy = bot.targetY - player.y;
-        const targetAim = Math.atan2(dy, dx);
+        const targetAim = Math.atan2(desiredDy, desiredDx);
         let aimDiff = targetAim - bot.currentAim;
         while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
         while (aimDiff < -Math.PI) aimDiff += Math.PI * 2;
@@ -311,21 +345,33 @@ export const updateBots = (world: World, now: number): void => {
         bot.shouldFire = nearbyPlayers[0].dist < fireRange && Math.abs(aimDiff) <= Math.PI / 3;
       } else if (nearbyPickups.length > 0) {
         const target = nearbyPickups[0].pickup;
-        bot.targetX = target.x;
-        bot.targetY = target.y;
+        desiredDx = target.x - player.x;
+        desiredDy = target.y - player.y;
       } else {
         const centerX = world.w / 2;
         const centerY = world.h / 2;
         const toCenterDist = Math.hypot(centerX - player.x, centerY - player.y);
 
         if (toCenterDist > 300) {
-          bot.targetX = centerX + rndRange(-200, 200);
-          bot.targetY = centerY + rndRange(-200, 200);
+          desiredDx = (centerX + rndRange(-200, 200)) - player.x;
+          desiredDy = (centerY + rndRange(-200, 200)) - player.y;
         } else {
-          bot.targetX = player.x + rndRange(-200, 200);
-          bot.targetY = player.y + rndRange(-200, 200);
+          desiredDx = rndRange(-200, 200);
+          desiredDy = rndRange(-200, 200);
         }
       }
+
+      // Normalize objective vector to standard distance (e.g., 300) so it blends well with avoidance
+      const objDist = Math.hypot(desiredDx, desiredDy) || 1;
+      // If we are decelerating, objDist will be tiny, so we shouldn't force it to 300
+      if (desiredDx !== 0 || desiredDy !== 0) {
+        desiredDx = (desiredDx / objDist) * 300;
+        desiredDy = (desiredDy / objDist) * 300;
+      }
+
+      // Combine objective with avoidance
+      bot.targetX = player.x + desiredDx + avoidX;
+      bot.targetY = player.y + desiredDy + avoidY;
 
       bot.targetX = Math.max(50, Math.min(world.w - 50, bot.targetX));
       bot.targetY = Math.max(50, Math.min(world.h - 50, bot.targetY));

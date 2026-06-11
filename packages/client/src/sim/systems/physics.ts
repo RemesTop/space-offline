@@ -214,10 +214,15 @@ export const bulletHits = (world: World, dt: number, now: number) => {
       const projY = segStartY + t * (b.y - segStartY);
 
       if (dist2({ x: projX, y: projY }, { x: p.x, y: p.y }) < r * r) {
+        if (!b.hitTargets) b.hitTargets = new Set();
+        if (b.hitTargets.has(p.id)) continue;
+
         if (now < p.invulnUntil) {
           toRemove.push(b.id);
           break;
         }
+
+        b.hitTargets.add(p.id);
         const prevHp = p.hp;
         p.hp -= b.damage;
         p.lastDamageTakenAt = now;

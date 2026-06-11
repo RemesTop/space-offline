@@ -85,6 +85,7 @@ export type Bullet = {
   pierce: boolean;
   isLaser?: boolean;
   isRedLaser?: boolean;
+  hitTargets?: Set<string>;
 };
 
 export type Pickup = {

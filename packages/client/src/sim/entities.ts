@@ -38,7 +38,7 @@ export const addPlayer = (
     hp: PLAYER.baseHP + (isGiant ? 200 : 0),
     maxHp: PLAYER.baseHP + (isGiant ? 200 : 0),
     accel: isGiant ? PLAYER.baseAccel * 0.8 : PLAYER.baseAccel,
-    maxSpeed: isGiant ? PLAYER.baseMaxSpeed * 0.6 : PLAYER.baseMaxSpeed,
+    maxSpeed: isGiant ? PLAYER.baseMaxSpeed * 0.4 : PLAYER.baseMaxSpeed,
     damage: BULLET.baseDamage,
     fireCooldownMs: BULLET.cooldownMs,
     lastFireAt: 0,
@@ -230,7 +230,8 @@ export const applyLevelChoice = (
       if (choice.special === "Bumper Body" && !p.socketId) {
         p.accel += 80;
       } else if (choice.special === "Laser Beam") {
-        p.fireCooldownMs += 45;
+        p.fireCooldownMs += 120;
+        p.damage *= 2.5; // significantly increase damage since it no longer multi-hits
       }
     }
   } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
@@ -324,7 +325,7 @@ export const applyLevelChoice = (
 const rollChoices = (p: Player): PowerupChoice[] => {
   if ([5, 10, 15].includes(p.level)) {
     const allSpecials: PowerupChoice[] = [
-      { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "+15 HP per kill" },
+      { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "Regen 5 HP/s out of combat" },
       { family: "Special", special: "Zero gravity", label: "Zero gravity", desc: "No damage/collision from planets/gravity" },
       { family: "Special", special: "Bumper Body", label: "Bumper Body", desc: "Damage and push other ships away heavily" },
       { family: "Special", special: "Twin Weapon", label: "Twin Weapon", desc: "Shoot two bullets side-by-side" },
