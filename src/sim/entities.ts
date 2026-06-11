@@ -184,7 +184,9 @@ export const giveXP = (world: World, p: Player, value: number) => {
 };
 
 const sendOffer = (world: World, p: Player) => {
-  const choices = rollChoices(p);
+  // Calculate which level we are currently offering choices for
+  const offerLevel = p.level - (p.pendingOffersCount || 1) + 1;
+  const choices = rollChoices(p, offerLevel);
 
   // If no choices available, don't show level up modal at all
   if (choices.length === 0) {
@@ -322,8 +324,9 @@ export const applyLevelChoice = (
   });
 };
 
-const rollChoices = (p: Player): PowerupChoice[] => {
-  if ([5, 10, 15].includes(p.level)) {
+const rollChoices = (p: Player, specificLevel?: number): PowerupChoice[] => {
+  const levelToCheck = specificLevel ?? p.level;
+  if ([5, 10, 15].includes(levelToCheck)) {
     const allSpecials: PowerupChoice[] = [
       { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "Regen 5 HP/s out of combat" },
       { family: "Special", special: "Zero gravity", label: "Zero gravity", desc: "No damage/collision from planets/gravity" },
@@ -618,7 +621,10 @@ export const collectPickups = (world: World) => {
       if (d2 < rad * rad) {
         world.pickups.delete(k);
         if (pu.type === "xp" || pu.type === "xp-giant") giveXP(world, p, pu.value);
-        else p.hp = Math.min(p.maxHp + p.shield, p.hp + pu.value);
+        else {
+          const healValue = p.level >= 13 ? pu.value * 0.6 : pu.value;
+          p.hp = Math.min(p.maxHp + p.shield, p.hp + healValue);
+        }
         world.io?.emitEvent(p.socketId, {
           type: "Pickup",
           playerId: p.id,

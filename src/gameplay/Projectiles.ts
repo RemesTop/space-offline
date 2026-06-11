@@ -11,6 +11,8 @@ interface ProjectileData {
 
 export default class Projectiles {
   private byId = new Map<string, ProjectileData>();
+  private circlePool: ProjectileData[] = [];
+  private rectPool: ProjectileData[] = [];
 
   constructor(private scene: Phaser.Scene) { }
 
@@ -23,16 +25,34 @@ export default class Projectiles {
   ensure(id: string, r: number, vx: number, vy: number, isBeam?: boolean, isRedLaser?: boolean): boolean {
     let data = this.byId.get(id);
     if (!data) {
-      let sprite: Phaser.GameObjects.Shape;
       if (isBeam) {
-        // Longer laser beam visuals (width stays fixed at 7.5, length scales with r)
-        const color = isRedLaser ? 0xff6666 : 0x88ffff; // Lighter, Star Wars-like colors
-        sprite = this.scene.add.rectangle(0, 0, r * 5, 7.5, color).setDepth(5);
-        sprite.setRotation(Math.atan2(vy, vx));
+        if (this.rectPool.length > 0) {
+          data = this.rectPool.pop()!;
+          data.vx = vx;
+          data.vy = vy;
+          data.sprite.setVisible(true);
+        } else {
+          const sprite = this.scene.add.rectangle(0, 0, r * 5, 7.5, 0).setDepth(5);
+          data = { sprite, vx, vy, isBeam: true };
+        }
+        
+        const color = isRedLaser ? 0xff6666 : 0x88ffff;
+        (data.sprite as Phaser.GameObjects.Rectangle).setFillStyle(color);
+        (data.sprite as Phaser.GameObjects.Rectangle).setSize(r * 5, 7.5);
+        data.sprite.setRotation(Math.atan2(vy, vx));
       } else {
-        sprite = this.scene.add.circle(0, 0, r, 0xffe066).setDepth(5);
+        if (this.circlePool.length > 0) {
+          data = this.circlePool.pop()!;
+          data.vx = vx;
+          data.vy = vy;
+          data.sprite.setVisible(true);
+        } else {
+          const sprite = this.scene.add.circle(0, 0, r, 0xffe066).setDepth(5);
+          data = { sprite, vx, vy, isBeam: false };
+        }
+        (data.sprite as Phaser.GameObjects.Arc).setRadius(r);
       }
-      this.byId.set(id, { sprite, vx, vy, isBeam });
+      this.byId.set(id, data);
       return true;
     } else {
       if (!data.isBeam) {
@@ -66,7 +86,12 @@ export default class Projectiles {
   removeMissing(currentIds: Set<string>) {
     for (const [id, data] of this.byId) {
       if (!currentIds.has(id)) {
-        data.sprite.destroy();
+        data.sprite.setVisible(false);
+        if (data.isBeam) {
+          this.rectPool.push(data);
+        } else {
+          this.circlePool.push(data);
+        }
         this.byId.delete(id);
       }
     }
@@ -77,5 +102,9 @@ export default class Projectiles {
       data.sprite.destroy();
     }
     this.byId.clear();
+    for (const data of this.circlePool) data.sprite.destroy();
+    for (const data of this.rectPool) data.sprite.destroy();
+    this.circlePool = [];
+    this.rectPool = [];
   }
 }

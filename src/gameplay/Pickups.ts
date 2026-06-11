@@ -41,7 +41,7 @@ export default class Pickups {
           const x = Math.cos(a) * r;
           const y = Math.sin(a) * r;
           const gfx = this.scene.add.graphics({ x, y });
-
+          
           let color = 0xFFFBEA; // warm yellow/white (base)
           let glow = 0xfff7b2; // soft outer glow
           if (type === "xp-giant") {
@@ -97,7 +97,7 @@ export default class Pickups {
       // Only render if on screen
       const w = this.scene.scale.width;
       const h = this.scene.scale.height;
-      const margin = 200; // Increased margin for further render distance
+      const margin = 300; // Increased margin for further render distance
       const visible = sx >= -margin && sx <= w + margin && sy >= -margin && sy <= h + margin;
       s.setVisible(visible);
       if (visible) s.setPosition(sx, sy);
