@@ -37,8 +37,8 @@ export const addPlayer = (
     isGiant,
     hp: PLAYER.baseHP + (isGiant ? 200 : 0),
     maxHp: PLAYER.baseHP + (isGiant ? 200 : 0),
-    accel: PLAYER.baseAccel,
-    maxSpeed: PLAYER.baseMaxSpeed,
+    accel: isGiant ? PLAYER.baseAccel * 0.5 : PLAYER.baseAccel,
+    maxSpeed: isGiant ? PLAYER.baseMaxSpeed * 0.6 : PLAYER.baseMaxSpeed,
     damage: BULLET.baseDamage,
     fireCooldownMs: BULLET.cooldownMs,
     lastFireAt: 0,
@@ -104,12 +104,12 @@ export const processInputs = (world: World, now: number) => {
       p.aim = f.aim;
       // Make movement more floaty: reduce acceleration for bots
       let accelMult = p.socketId ? 1.0 : 0.6;
-      
+
       let floatyAccel = p.accel * accelMult;
 
       p.vx += clamp(f.thrust.x, -1, 1) * floatyAccel * (f.dtMs / 1000);
       p.vy += clamp(f.thrust.y, -1, 1) * floatyAccel * (f.dtMs / 1000);
-      
+
       const spd = Math.hypot(p.vx, p.vy);
       let currentMaxSpeed = p.maxSpeed;
 
@@ -119,14 +119,14 @@ export const processInputs = (world: World, now: number) => {
         p.vy *= s;
       }
       if (f.fire) tryFire(world, p, f.aim, now);
-      
+
       // Regen Wings logic
       if (p.specialVariants.includes('Regen Wings') && p.hp > 0 && p.hp < p.maxHp) {
         if (now - (p.lastDamageTakenAt || 0) > 3000) {
           p.hp = Math.min(p.maxHp, p.hp + 5 * (f.dtMs / 1000));
         }
       }
-      
+
       p.lastAckSeq = Math.max(p.lastAckSeq, f.seq);
     }
   }
@@ -336,7 +336,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
     ];
     // Filter out ones already picked
     const availableSpecials = allSpecials.filter(c => !p.specialVariants.includes(c.special as string));
-    
+
     // Shuffle
     for (let i = availableSpecials.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -584,8 +584,8 @@ export const spawnPickupsIfNeeded = (world: World) => {
       type === "hp"
         ? PICKUPS.hpOrbValue
         : type === "xp-giant"
-        ? Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1])) * 3
-        : Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1]));
+          ? Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1])) * 3
+          : Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1]));
     const p: Pickup = {
       id,
       type,
@@ -601,8 +601,8 @@ export const spawnPickupsIfNeeded = (world: World) => {
 
 export const collectPickups = (world: World) => {
   for (const p of world.players.values()) {
-  // Dead players (hp <= 0) should not attract or collect pickups
-  if (p.hp <= 0) continue;
+    // Dead players (hp <= 0) should not attract or collect pickups
+    if (p.hp <= 0) continue;
     for (const k of world.pickups.keys()) {
       const pu = world.pickups.get(k)!;
       // magnet

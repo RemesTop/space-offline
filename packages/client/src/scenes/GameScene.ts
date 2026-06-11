@@ -1063,8 +1063,11 @@ export default class GameScene extends Phaser.Scene {
           if (this.textures.exists(textureKey)) {
             const depth = well.type === "blackhole" ? 1.1 : 1.5;
             const sprite = this.add.image(0, 0, textureKey).setDepth(depth);
-            // Scale sprite to match well radius (make blackhole visually larger than physical radius)
-            const targetDiameter = well.radius * 2 * (well.type === "blackhole" ? 1.4 : 1.0);
+            let visualMultiplier = 1.0;
+            if (well.type === "blackhole") visualMultiplier = 2.2;
+            else if (well.texture === "SATURNUS") visualMultiplier = 1.8;
+            
+            const targetDiameter = well.radius * 2 * visualMultiplier;
             const scale = targetDiameter / sprite.width;
             sprite.setScale(scale);
             this.planetSprites.set(well.id, sprite);

@@ -174,6 +174,13 @@ export const integrate = (world: World, dt: number) => {
     b.y += b.vy * dt;
   }
   for (const rock of world.rocks.values()) {
+    // Cap rock speed so they don't fly too fast after being bumped
+    const rSpd = Math.hypot(rock.vx, rock.vy);
+    const maxRockSpeed = 300;
+    if (rSpd > maxRockSpeed) {
+      rock.vx = (rock.vx / rSpd) * maxRockSpeed;
+      rock.vy = (rock.vy / rSpd) * maxRockSpeed;
+    }
     rock.x += rock.vx * dt;
     rock.y += rock.vy * dt;
     rock.rotation = (rock.rotation || 0) + (rock.vx > 0 ? 0.5 : -0.5) * dt;
