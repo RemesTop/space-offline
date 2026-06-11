@@ -56,6 +56,7 @@ export default class GameScene extends Phaser.Scene {
   wellGfx!: Phaser.GameObjects.Graphics;
 
   radarLevel = 0;
+  wingsLevel = 0;
   specialVariants: string[] = [];
 
   // Planet sprite management
@@ -163,6 +164,7 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("SATURNUS", new URL("../assets/planeetat/SATURNUS.png", import.meta.url).toString());
     this.load.image("SUN", new URL("../assets/planeetat/SUN.png", import.meta.url).toString());
     this.load.image("VENUS", new URL("../assets/planeetat/VENUS.png", import.meta.url).toString());
+    this.load.image("BLACKHOLE", new URL("../assets/planeetat/BLACKHOLE.png", import.meta.url).toString());
     
     // Preload rock
     this.load.image("rock", new URL("../assets/rock.png", import.meta.url).toString());
@@ -187,10 +189,35 @@ export default class GameScene extends Phaser.Scene {
     this.pickPrev = new Map();
     this.pickCurr = new Map();
     this.pickAlpha = 1;
+
+    // Reset interpolation and reconciliation state to clear stale values
+    this.interp = new Interp();
+    this.recon = new Recon();
+
+    // Clean up existing ships before creating a new map
+    if (this.ships) {
+      this.ships.forEach((s) => s.destroy());
+    }
     this.ships = new Map();
     this.dyingShips.clear();
+
+    // Clean up existing rock sprites to prevent referencing destroyed Phaser sprites
+    if (this.rockSprites) {
+      this.rockSprites.forEach((s) => s.destroy());
+    }
+    this.rockSprites = new Map();
+
+    // Clean up explosion containers
+    if (this.explosionContainers) {
+      this.explosionContainers.forEach((c) => c.destroy());
+      this.explosionContainers.clear();
+    }
+
     this.wingsLevel = 0; // Reset wings level for new game
-    this.planetSprites.forEach(s => s.destroy());
+    
+    if (this.planetSprites) {
+      this.planetSprites.forEach(s => s.destroy());
+    }
     this.planetSprites = new Map();
 
     // Use global Net instance to persist simulation state across respawns
@@ -204,12 +231,23 @@ export default class GameScene extends Phaser.Scene {
 
     // ALWAYS recreate gameplay display-object based managers (their GameObjects were destroyed on scene restart)
     this.parallax = new Parallax(this);
+    
+    // Clean up existing resize listener to prevent multiple accumulative handlers
+    this.scale.off('resize');
     this.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
       if (this.parallax) {
         this.parallax.resize(gameSize.width, gameSize.height);
       }
     });
+
+    if (this.bullets) {
+      this.bullets.destroy();
+    }
     this.bullets = new Projectiles(this);
+
+    if (this.pickups) {
+      this.pickups.destroy();
+    }
     this.pickups = new Pickups(this);
 
     // Initialize HUD
@@ -377,6 +415,8 @@ export default class GameScene extends Phaser.Scene {
         // If YOU died, end run (only once)
         if (!this.gameEnded && e.victimId === this.net.youId) {
           this.gameEnded = true;
+          this.wingsLevel = 0;
+          this.updateCameraZoom();
           const now = performance.now();
           const duration = now - this.runStartMs;
           const stats = {
@@ -929,11 +969,11 @@ export default class GameScene extends Phaser.Scene {
     if (youI) {
       this.camX = youI.x;
       this.camY = youI.y;
-      this.specialVariants = youI.specialVariants;
+      this.specialVariants = youI.specialVariants || [];
     } else if (this.recon.you) {
       this.camX = this.recon.you.x;
       this.camY = this.recon.you.y;
-      this.specialVariants = this.recon.you.specialVariants;
+      this.specialVariants = this.recon.you.specialVariants || [];
     }
 
     // Advance entity interpolation
@@ -1000,13 +1040,14 @@ export default class GameScene extends Phaser.Scene {
 
     // Ensure sprites exist and position them (with interpolation between snapshots)
     for (const well of this.wells) {
-      if ((well.type === "planet" || well.type === "sun") && well.texture) {
+      if ((well.type === "planet" || well.type === "sun" || well.type === "blackhole") && well.texture) {
         const textureKey = well.texture;
         if (!this.planetSprites.has(well.id)) {
           if (this.textures.exists(textureKey)) {
-            const sprite = this.add.image(0, 0, textureKey).setDepth(1);
-            // Scale sprite to match well radius
-            const targetDiameter = well.radius * 2;
+            const depth = well.type === "blackhole" ? 1.1 : 1.5;
+            const sprite = this.add.image(0, 0, textureKey).setDepth(depth);
+            // Scale sprite to match well radius (make blackhole visually larger than physical radius)
+            const targetDiameter = well.radius * 2 * (well.type === "blackhole" ? 1.4 : 1.0);
             const scale = targetDiameter / sprite.width;
             sprite.setScale(scale);
             this.planetSprites.set(well.id, sprite);

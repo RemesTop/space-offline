@@ -109,8 +109,18 @@ export default class Pickups {
       if (!currentIds.has(id)) {
         s.destroy();
         this.byId.delete(id);
+        this.stardustParticles.delete(id);
       }
     }
+  }
+
+  destroy() {
+    this.scene.events.off("update", this.updateStardust, this);
+    for (const s of this.byId.values()) {
+      s.destroy();
+    }
+    this.byId.clear();
+    this.stardustParticles.clear();
   }
 
   private updateStardust(time: number) {

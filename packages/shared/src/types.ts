@@ -8,7 +8,7 @@ export type PickupType = "xp" | "hp" | "xp-giant";
 
 export type AltFireType = "railgun" | "spread";
 
-export type SpecialVariant = 'Regen Wings' | 'Gravity Point' | 'Bumper Body' | 'Twin Weapon' | 'Laser Window' | 'Omni Window';
+export type SpecialVariant = string;
 
 export type PowerupFamily = "Hull" | "Damage" | "Engine" | "FireRate" | "Magnet" | "Wings" | "Special";
 
@@ -55,7 +55,7 @@ export type EntityState = {
   aim?: number;
   level?: number;
   rotation?: number;
-  specialVariants: SpecialVariant[];
+  specialVariants?: SpecialVariant[];
   isLaser?: boolean;
 };
 

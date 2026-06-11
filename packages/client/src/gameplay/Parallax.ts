@@ -101,6 +101,7 @@ function createStarTexture(
   minR: number,
   maxR: number,
 ) {
+  if (scene.textures.exists(key)) return;
   const g = scene.add.graphics();
   g.fillStyle(0x000000, 1);
   g.fillRect(0, 0, w, h);

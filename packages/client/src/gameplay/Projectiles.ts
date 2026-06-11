@@ -68,4 +68,11 @@ export default class Projectiles {
       }
     }
   }
+
+  destroy() {
+    for (const data of this.byId.values()) {
+      data.sprite.destroy();
+    }
+    this.byId.clear();
+  }
 }

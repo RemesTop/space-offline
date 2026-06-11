@@ -82,9 +82,14 @@ export const spawnBot = (world: World): void => {
     }
   }
 
-  if (!player.isGiant && maxPlayerLevel >= 15) {
-    player.maxHp += 50;
-    player.hp = player.maxHp;
+  if (maxPlayerLevel >= 15) {
+    if (player.isGiant) {
+      player.maxHp += 100;
+      player.hp = player.maxHp;
+    } else {
+      player.maxHp += 50;
+      player.hp = player.maxHp;
+    }
     for (let i = 0; i < 2; i++) {
       const upgradeRnd = Math.random();
       if (upgradeRnd < 0.25) {

@@ -42,28 +42,7 @@ export const applyGravity = (world: World, dt: number) => {
           spawnDeathPickups(world, p);
         }
       }
-      if (w.type === "blackhole" && d < w.radius + 40) {
-        const prevHp = p.hp;
-        p.hp -= GRAVITY.blackHoleEdgeDps * dt;
-        p.lastDamageTakenAt = performance.now();
-        if (prevHp > 0 && p.hp <= 0) {
-          p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
-          for (const player of world.players.values()) {
-            if (player.socketId) {
-              world.io?.emitEvent(player.socketId, {
-                type: "Kill",
-                killerId: null, // Environmental death
-                victimId: p.id,
-                victimScore: p.score,
-                victimLevel: p.level,
-                x: p.x,
-                y: p.y,
-              });
-            }
-          }
-          spawnDeathPickups(world, p);
-        }
-      }
+
       if (w.type === "planet" && d < w.radius + p.r + 30) { // Increased collision radius by 30
         // Damage-over-time based on impact speed (no instant large chunk)
         const impactSpeed = Math.hypot(p.vx, p.vy);
@@ -145,7 +124,7 @@ export const applyGravity = (world: World, dt: number) => {
          }
          r.x = w.x - nx * (w.radius + r.r + 1);
          r.y = w.y - ny * (w.radius + r.r + 1);
-      } else if ((w.type === "sun" || w.type === "blackhole") && d < w.radius + r.r) {
+      } else if ((w.type === "sun" || w.type === "blackhole") && d < w.radius * 0.25) {
          // Mark for deletion; spawnRocks() will replace them naturally
          rocksToDelete.push({ id: r.id, x: r.x, y: r.y });
       }

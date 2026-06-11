@@ -68,7 +68,7 @@ export const ServerSnapshotSchema = z.object({
           Engine: z.number(),
           FireRate: z.number(),
           Magnet: z.number(),
-          Radar: z.number(),
+          Wings: z.number(),
         })
         .optional(),
       maxSpeed: z.number().optional(),
@@ -76,6 +76,8 @@ export const ServerSnapshotSchema = z.object({
       name: z.string().optional(),
       isBot: z.boolean().optional(),
       isGiant: z.boolean().optional(),
+      specialVariants: z.array(z.string()).optional(),
+      isLaser: z.boolean().optional(),
     }),
   ),
   pickups: z.array(
@@ -138,11 +140,12 @@ export const ServerEventSchema = z.discriminatedUnion("type", [
     choices: z.array(
       z.object({
         family: z.union([
-          z.enum(["Hull", "Damage", "Engine", "FireRate", "Magnet", "Radar"]),
+          z.enum(["Hull", "Damage", "Engine", "FireRate", "Magnet", "Wings", "Special"]),
           z.literal("AltFire"),
         ]),
         tier: z.number().int().min(1).max(5).optional(),
         alt: z.enum(["railgun", "spread"]).optional(),
+        special: z.string().optional(),
         label: z.string(),
         desc: z.string(),
       }),
@@ -162,13 +165,14 @@ export const ServerEventSchema = z.discriminatedUnion("type", [
       magnetRadius: z.number(),
       shield: z.number(),
       altFire: z.enum(["railgun", "spread"]).optional(),
+      specialVariants: z.array(z.string()).optional(),
       powerupLevels: z.object({
         Hull: z.number(),
         Damage: z.number(),
         Engine: z.number(),
         FireRate: z.number(),
         Magnet: z.number(),
-        Radar: z.number(),
+        Wings: z.number(),
       }).optional(),
     }),
   }),
@@ -178,11 +182,12 @@ export type ServerEvent = z.infer<typeof ServerEventSchema>;
 export const LevelChoiceSchema = z.object({
   chosen: z.object({
     family: z.union([
-      z.enum(["Hull", "Damage", "Engine", "FireRate", "Magnet", "Radar"]),
+      z.enum(["Hull", "Damage", "Engine", "FireRate", "Magnet", "Wings", "Special"]),
       z.literal("AltFire"),
     ]),
     tier: z.number().int().min(1).max(5).optional(),
     alt: z.enum(["railgun", "spread"]).optional(),
+    special: z.string().optional(),
   }),
 });
 export type LevelChoice = z.infer<typeof LevelChoiceSchema>;

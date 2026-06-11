@@ -114,6 +114,17 @@ export const GRAVITY = {
       maxPull: 150,
       texture: "VENUS"
     },
+    {
+      id: "blackholeA",
+      x: -1000, // Spawn offscreen initially; updatePlanetMovement will assign actual coordinates
+      y: -1000,
+      mass: 4.5e6,
+      radius: 170,
+      influenceRadius: 700,
+      type: "blackhole" as const,
+      maxPull: 280,
+      texture: "BLACKHOLE"
+    },
   ],
   sunHeatDps: 18,
   blackHoleEdgeDps: 40,
