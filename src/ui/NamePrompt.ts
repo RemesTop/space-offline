@@ -3,6 +3,7 @@ export class NamePrompt {
   private input!: HTMLInputElement;
   private playBtn!: HTMLButtonElement;
   private randomBtn!: HTMLButtonElement;
+  private fsBtn!: HTMLButtonElement;
   private counter!: HTMLSpanElement;
   private errorEl!: HTMLDivElement;
   private readonly maxLen = 24;
@@ -18,8 +19,10 @@ export class NamePrompt {
       <div class="start-header">
         <h1 class="start-title">Space IO</h1>
         <div class="start-controls" style="margin-top: 12px; font-size: 13px; color: #8aa2c7; line-height: 1.6;">
-          <span style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">WASD</kbd> to move your ship</span>
-          <span style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Space</kbd> or <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Mouse 1</kbd> to shoot</span>
+          <span class="desktop-only" style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">WASD</kbd> to move your ship</span>
+          <span class="desktop-only" style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Space</kbd> or <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Mouse 1</kbd> to shoot</span>
+          <span class="mobile-only" style="display:none; margin:0 8px;">Tap anywhere to steer and thrust</span>
+          <span class="mobile-only" style="display:none; margin:0 8px;">Use the FIRE button to shoot</span>
         </div>
         <div class="volume-control" style="margin-top: 12px; font-size: 13px; color: #8aa2c7; display: flex; align-items: center; justify-content: center; gap: 8px;">
           <span>Volume</span>
@@ -34,6 +37,7 @@ export class NamePrompt {
         </label>
         <div class="error-msg" aria-live="polite" style="display:none"></div>
         <div class="name-actions">
+          <button type="button" id="fsBtn" class="btn secondary mobile-only" title="Fullscreen" aria-label="Fullscreen" style="display:none; flex: 0.5;">⛶</button>
           <button type="button" id="rand" class="btn secondary" title="Random name" aria-label="Generate random name">🎲 Random</button>
           <button type="submit" id="go" class="btn primary" disabled>Play ▶</button>
         </div>
@@ -50,6 +54,7 @@ export class NamePrompt {
     this.input = modal.querySelector('#nm') as HTMLInputElement;
     this.playBtn = modal.querySelector('#go') as HTMLButtonElement;
     this.randomBtn = modal.querySelector('#rand') as HTMLButtonElement;
+    this.fsBtn = modal.querySelector('#fsBtn') as HTMLButtonElement;
     this.counter = modal.querySelector('.char-counter .count') as HTMLSpanElement;
     this.errorEl = modal.querySelector('.error-msg') as HTMLDivElement;
 
@@ -74,6 +79,15 @@ export class NamePrompt {
       this.validate();
       this.input.focus();
       this.input.select();
+    });
+    this.fsBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
     });
 
     const volSlider = modal.querySelector('#vol-slider') as HTMLInputElement;

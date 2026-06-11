@@ -295,8 +295,20 @@ body,
   color: #e6ecff;
 }
 
+/* Mobile/Desktop Visibility Utilities */
+.mobile-only {
+  display: none !important;
+}
+
 /* Mobile / Touch Optimizations */
 @media (max-width: 820px), (hover: none) and (pointer: coarse) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: inline-flex !important;
+  }
+
   html, body, #game {
     /* Respect safe areas (iOS notch etc) */
     padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
@@ -311,10 +323,10 @@ body,
     padding: 4px 6px;
   }
 
-  /* Compact powerups panel moved to middle-left */
+  /* Compact powerups panel moved to top-left */
   .powerups-panel {
-    top: 50%;
-    transform: translateY(-50%);
+    top: calc(env(safe-area-inset-top, 0) + 4px);
+    transform: none;
     bottom: auto;
     left: calc(env(safe-area-inset-left, 0) + 4px);
     max-width: 100px;
@@ -325,23 +337,27 @@ body,
   .powerups-panel h3 { display: none; } /* Hide title to save space */
   .powerups-list { gap: 1px; }
 
-  /* Keep bars centered but slimmer & stacked for visibility */
+  /* Keep bars centered but slimmer */
   .bottom-bars {
     bottom: calc(env(safe-area-inset-bottom, 0) + 8px);
+    left: 50%;
+    transform: translateX(-50%);
     gap: 4px;
+    flex-direction: row;
   }
   .bar {
     height: 8px;
-    width: 42vw;
+    width: 42vw; 
     max-width: 240px;
   }
-  .hp-text { font-size: 10px; top: -4px; }
+  .hp-text { font-size: 10px; top: -4px; text-align: center; padding-left: 0; }
 
-  /* Velocity panel tightly below leaderboard */
+  /* Velocity panel top side of healthbar on the left corner */
   .velocity-panel {
-    right: calc(env(safe-area-inset-right, 0) + 4px);
-    top: calc(env(safe-area-inset-top, 0) + 60px);
-    bottom: auto;
+    left: calc(50% - 42vw); /* Align roughly with the left edge of the healthbar (which spans 42vw from center minus gap) */
+    right: auto;
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0) + 26px); /* sits above bottom-bars */
     padding: 3px 6px;
   }
   .velocity-value { font-size: 11px; }
@@ -373,18 +389,14 @@ body,
   /* No additional overrides needed since mobile defaults are already tiny */
 }
 
-/* Landscape on small devices: move bars to top to free horizontal space for controls */
+/* Landscape on small devices: ensure bars don't block bottom */
 @media (max-height: 480px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
-  .bottom-bars {
-    top: calc(env(safe-area-inset-top, 0) + 6px);
-    bottom: auto;
-  }
   .powerups-panel {
-    top: calc(env(safe-area-inset-top, 0) + 6px);
-    left: calc(env(safe-area-inset-left, 0) + 6px);
+    top: calc(env(safe-area-inset-top, 0) + 4px);
+    left: calc(env(safe-area-inset-left, 0) + 4px);
   }
   .velocity-panel {
-    bottom: calc(env(safe-area-inset-bottom, 0) + 16px);
+    bottom: calc(env(safe-area-inset-bottom, 0) + 32px);
   }
 }
 
