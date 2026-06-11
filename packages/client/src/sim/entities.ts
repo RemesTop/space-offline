@@ -37,7 +37,7 @@ export const addPlayer = (
     isGiant,
     hp: PLAYER.baseHP + (isGiant ? 200 : 0),
     maxHp: PLAYER.baseHP + (isGiant ? 200 : 0),
-    accel: isGiant ? PLAYER.baseAccel * 0.5 : PLAYER.baseAccel,
+    accel: isGiant ? PLAYER.baseAccel * 0.8 : PLAYER.baseAccel,
     maxSpeed: isGiant ? PLAYER.baseMaxSpeed * 0.6 : PLAYER.baseMaxSpeed,
     damage: BULLET.baseDamage,
     fireCooldownMs: BULLET.cooldownMs,
@@ -507,7 +507,7 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
   const damageLvl = p.powerupLevels.Damage || 0;
   const scaledRadius = BULLET.radius + damageLvl * 1.5;
   const isRedLaser = hasLaser && damageLvl >= 3;
-  const currentSpeed = hasLaser ? BULLET.speed * 1.3 : BULLET.speed;
+  const currentSpeed = hasLaser ? BULLET.speed * 1.6 : BULLET.speed;
 
   if (hasTwin) {
     fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, 0.15, hasLaser, hasLaser, cannonOffset, isRedLaser);

@@ -349,7 +349,8 @@ export const updateBots = (world: World, now: number): void => {
     while (aimDiff < -Math.PI) aimDiff += Math.PI * 2;
 
     const wingsLvl = player.powerupLevels?.Wings || 0;
-    const turnSpeed = 2.0 + (wingsLvl * 0.25);
+    const baseTurnSpeed = bot.personality === "Scavenger" ? 4.0 : 2.0;
+    const turnSpeed = baseTurnSpeed + (wingsLvl * 0.25);
     // 33ms simulated dt for steering every tick
     const maxTurn = turnSpeed * (33 / 1000);
 
