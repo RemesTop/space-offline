@@ -20,7 +20,7 @@ export const applyGravity = (world: World, dt: number) => {
       p.vy += ay * dt;
 
       // heat / edge damage cones
-      if (w.type === "sun" && d < w.radius + 60) {
+      if (w.type === "sun" && d < w.radius) {
         const prevHp = p.hp;
         p.hp -= GRAVITY.sunHeatDps * dt;
         p.lastDamageTakenAt = performance.now();
