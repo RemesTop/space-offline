@@ -34,7 +34,7 @@ export type PlayerStats = {
   shield: number; // simple flat extra hp/regen placeholder (kept for backward compatibility with radar)
   radarLevel?: number; // radar upgrade level for zoom-out functionality
   altFire?: AltFireType;
-  specialVariant?: SpecialVariant;
+  specialVariants: SpecialVariant[];
 };
 
 export type EntityState = {
@@ -55,7 +55,8 @@ export type EntityState = {
   aim?: number;
   level?: number;
   rotation?: number;
-  specialVariant?: SpecialVariant;
+  specialVariants: SpecialVariant[];
+  isLaser?: boolean;
 };
 
 export type PickupState = {

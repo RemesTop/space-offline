@@ -6,7 +6,7 @@ import { spawnDeathPickups } from "./deathDrops.js";
 export const applyGravity = (world: World, dt: number) => {
   for (const p of world.players.values()) {
     for (const w of world.wells) {
-      if (p.specialVariant === 'Gravity Point') continue;
+      if (p.specialVariants.includes('Zero gravity')) continue;
       
       const dx = w.x - p.x;
       const dy = w.y - p.y;
@@ -120,6 +120,7 @@ export const applyGravity = (world: World, dt: number) => {
       b.vy += ay * dt;
     }
   }
+  const rocksToDelete: { id: string; x: number; y: number }[] = [];
   for (const r of world.rocks.values()) {
     for (const w of world.wells) {
       const dx = w.x - r.x;
@@ -145,8 +146,17 @@ export const applyGravity = (world: World, dt: number) => {
          r.x = w.x - nx * (w.radius + r.r + 1);
          r.y = w.y - ny * (w.radius + r.r + 1);
       } else if ((w.type === "sun" || w.type === "blackhole") && d < w.radius + r.r) {
-         // Teleport far away to trigger cleanup and allow respawn
-         r.x = -5000;
+         // Mark for deletion; spawnRocks() will replace them naturally
+         rocksToDelete.push({ id: r.id, x: r.x, y: r.y });
+      }
+    }
+  }
+  for (const rock of rocksToDelete) {
+    world.rocks.delete(rock.id);
+    // Emit BumperHit animation to all real players
+    for (const p of world.players.values()) {
+      if (p.socketId) {
+        world.io?.emitEvent(p.socketId, { type: "BumperHit" as const, x: rock.x, y: rock.y });
       }
     }
   }
@@ -202,7 +212,31 @@ export const bulletHits = (world: World, dt: number, now: number) => {
     for (const p of world.players.values()) {
       if (p.hp <= 0 || p.id === b.ownerId) continue;
       const r = p.r + b.r;
-      if (dist2({ x: b.x, y: b.y }, { x: p.x, y: p.y }) < r * r) {
+      const prevX = b.x - b.vx * dt;
+      const prevY = b.y - b.vy * dt;
+
+      let segStartX = prevX;
+      let segStartY = prevY;
+      
+      // For lasers, they are visually much longer (r * 10), so they should hit anything touching that visual line.
+      if (b.isLaser) {
+        const length = b.r * 10;
+        const mag = Math.hypot(b.vx, b.vy) || 1;
+        segStartX = b.x - (b.vx / mag) * length;
+        segStartY = b.y - (b.vy / mag) * length;
+      }
+
+      // Segment-point distance squared
+      const l2 = dist2({x: segStartX, y: segStartY}, {x: b.x, y: b.y});
+      let t = 0;
+      if (l2 > 0) {
+        t = ((p.x - segStartX) * (b.x - segStartX) + (p.y - segStartY) * (b.y - segStartY)) / l2;
+        t = Math.max(0, Math.min(1, t));
+      }
+      const projX = segStartX + t * (b.x - segStartX);
+      const projY = segStartY + t * (b.y - segStartY);
+
+      if (dist2({ x: projX, y: projY }, { x: p.x, y: p.y }) < r * r) {
         if (now < p.invulnUntil) {
           toRemove.push(b.id);
           break;

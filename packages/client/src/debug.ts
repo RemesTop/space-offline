@@ -15,7 +15,7 @@ export interface DebugCtx {
   /** Camera anchor in world space (use interpolated 'you' each frame). */
   camX: number;
   camY: number;
-  specialVariant?: string;
+  specialVariants?: string[];
 }
 
 /** Draw the world bounds rectangle relative to the camera anchor. */
@@ -50,10 +50,10 @@ export function drawArenaBounds(ctx: DebugCtx): void {
 }
 
 export function drawGravityDebug(ctx: DebugCtx): void {
-  const { wellGfx: g, debugWellsOn, wells, scale, camX, camY, specialVariant } = ctx;
+  const { wellGfx: g, debugWellsOn, wells, scale, camX, camY, specialVariants } = ctx;
   g.clear();
   if (!debugWellsOn) return;
-  if (specialVariant === 'Zero gravity') return;
+  if (specialVariants?.includes('Zero gravity')) return;
 
   const cx = scale.width / 2;
   const cy = scale.height / 2;

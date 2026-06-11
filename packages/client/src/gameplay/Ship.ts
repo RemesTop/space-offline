@@ -22,7 +22,7 @@ export default class Ship {
   private _lastRot = 0;
   private _scale: number;
   private _originalTint = 0xffffff;
-  private _specialVariant?: string;
+  private _specialVariants?: string[];
 
   // Added properties for name tag and death pinning
   worldX?: number;
@@ -136,7 +136,7 @@ export default class Ship {
     this.point.setTint(color);
     this.weapon.setTint(color);
     
-    if (this._specialVariant === 'Zero gravity' && color === this._originalTint) {
+    if (this._specialVariants?.includes('Zero gravity') && color === this._originalTint) {
       this.thruster.setTint(0x00ffff);
     } else {
       this.thruster.setTint(color);
@@ -186,23 +186,23 @@ export default class Ship {
     wingsLevel?: number;
     hullLevel?: number;
     isGiant?: boolean;
-    specialVariant?: any;
+    specialVariants?: string[];
   }) {
-    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, wingsLevel, isGiant, specialVariant } = stats;
+    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, wingsLevel, isGiant, specialVariants } = stats;
 
-    this._specialVariant = specialVariant;
+    this._specialVariants = specialVariants;
 
     // Body texture based on Hull level - changes at level 2, then level 5
     // Level 1: (texture 0), Level 2+: (texture 1), Level 5+: (texture 2)
     const bodyTexLevel = (hullLevel || 0) < 1 ? 0 : (hullLevel || 0) < 4 ? 1 : 2;
     this.body.setTexture(`raketti/body${bodyTexLevel}.png`);
-    if (specialVariant === 'Bumper Body') this.body.setTexture('raketti/bodyspecial.png');
+    if (specialVariants?.includes('Bumper Body')) this.body.setTexture('raketti/bodyspecial.png');
 
     // Weapon texture based on fire cooldown - changes at level 2, then level 5
     // Level 1: 220ms (texture 0), Level 2+: <220ms (texture 1), Level 5+: much lower (texture 2)
     const weaponLevel = fireCooldownMs >= 220 ? 0 : fireCooldownMs > 180 ? 1 : 2;
     this.weapon.setTexture(`raketti/weapon${weaponLevel}.png`);
-    if (specialVariant === 'Twin Weapon') this.weapon.setTexture('raketti/weaponspecial.png');
+    if (specialVariants?.includes('Twin Weapon')) this.weapon.setTexture('raketti/weaponspecial.png');
 
     // Point texture based on base damage - changes at level 2, then level 5
     // Level 1: 12 damage (texture 0), Level 2+: 16+ damage (texture 1), Level 5+: 24+ damage (texture 2)
@@ -213,15 +213,15 @@ export default class Ship {
     // Level 1: (texture 0), Level 2+: (texture 1), Level 5+: (texture 2)
     const wingsTexLevel = (wingsLevel || 0) < 1 ? 0 : (wingsLevel || 0) < 4 ? 1 : 2;
     this.wings.setTexture(`raketti/wings${wingsTexLevel}.png`);
-    if (specialVariant === 'Regen Wings') this.wings.setTexture('raketti/wingsspecial.png');
+    if (specialVariants?.includes('Regen Wings')) this.wings.setTexture('raketti/wingsspecial.png');
 
     // Window texture based on magnet radius - changes at level 2, then level 5
     // Level 1: 100 radius (texture 0), Level 2+: 130+ radius (texture 1), Level 5+: 190+ radius (texture 2)
     const windowLevel = magnetRadius <= 100 ? 0 : magnetRadius < 190 ? 1 : 2;
     this.window.setTexture(`raketti/window${windowLevel}.png`);
-    if (specialVariant === 'Laser Beam') this.window.setTexture('raketti/windowspecial.png');
+    if (specialVariants?.includes('Laser Beam')) this.window.setTexture('raketti/windowspecial.png');
     
-    if (specialVariant === 'Bullet hell') this.point.setTexture('raketti/pointspecial.png');
+    if (specialVariants?.includes('Bullet hell')) this.point.setTexture('raketti/pointspecial.png');
 
     // Update tint for thruster in case special variant changed
     this._applyTint(this._originalTint);

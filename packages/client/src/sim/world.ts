@@ -46,7 +46,7 @@ export type Player = {
   invulnUntil: number;
   isGiant?: boolean;
   altFire?: "railgun" | "spread";
-  specialVariant?: 'Regen Wings' | 'Zero gravity' | 'Bumper Body' | 'Twin Weapon' | 'Laser Beam' | 'Bullet hell';
+  specialVariants: string[];
   lastDamageTakenAt?: number;
   lastBumperHitAt?: number;
   // Powerup levels (1-5 for each powerup type)
@@ -82,6 +82,7 @@ export type Bullet = {
   damage: number;
   ttl: number;
   pierce: boolean;
+  isLaser?: boolean;
 };
 
 export type Pickup = {

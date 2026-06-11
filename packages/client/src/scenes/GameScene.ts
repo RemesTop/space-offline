@@ -55,8 +55,8 @@ export default class GameScene extends Phaser.Scene {
   debugFullView = false; // New debug flag for full arena view
   wellGfx!: Phaser.GameObjects.Graphics;
 
-  // Radar upgrade tracking for zoom functionality
   radarLevel = 0;
+  specialVariants: string[] = [];
 
   // Planet sprite management
   planetSprites = new Map<string, Phaser.GameObjects.Image>();
@@ -271,17 +271,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // Debug key "I" to toggle full arena view
-    this.input.keyboard?.on("keydown-I", () => {
-      this.debugFullView = !this.debugFullView;
-      if (this.debugFullView) {
-        this.cameras.main.setZoom(Math.min(this.scale.width / this.worldW, this.scale.height / this.worldH));
-        this.cameras.main.centerOn(this.worldW / 2, this.worldH / 2);
-      } else {
-        this.updateCameraZoom();
-      }
-    });
-
     if (!this.audioCtx) {
       try {
         this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -431,8 +420,8 @@ export default class GameScene extends Phaser.Scene {
             maxSpeed: updated.maxSpeed,
             accel: updated.accel,
             magnetRadius: updated.magnetRadius,
+            specialVariants: updated.specialVariants,
             fireCooldownMs: updated.fireCooldownMs,
-            specialVariant: updated.specialVariant,
             engineLevel: updated.engineLevel,
             wingsLevel: updated.wingsLevel,
             hullLevel: updated.hullLevel,
@@ -617,7 +606,7 @@ export default class GameScene extends Phaser.Scene {
 
     for (const e of s.entities) {
       if (e.kind === "bullet") {
-        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy, (e as any).pierce); // Pass velocity and pierce here
+        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy, (e as any).isLaser); // Pass velocity and isLaser here
         if (isNew && e.ownerId !== this.net.youId && !this.gameEnded) {
           const dist = Math.hypot(e.x - youX, e.y - youY);
           if (dist < 1000) {
@@ -669,7 +658,7 @@ export default class GameScene extends Phaser.Scene {
             engineLevel: e.powerupLevels?.Engine,
             wingsLevel: e.powerupLevels?.Wings,
             isGiant: e.isGiant,
-            specialVariant: (e as any).specialVariant,
+            specialVariants: (e as any).specialVariants,
           });
         }
       } else if (e.kind === "rock") {
@@ -940,11 +929,11 @@ export default class GameScene extends Phaser.Scene {
     if (youI) {
       this.camX = youI.x;
       this.camY = youI.y;
-      this.specialVariant = youI.specialVariant;
+      this.specialVariants = youI.specialVariants;
     } else if (this.recon.you) {
       this.camX = this.recon.you.x;
       this.camY = this.recon.you.y;
-      this.specialVariant = this.recon.you.specialVariant;
+      this.specialVariants = this.recon.you.specialVariants;
     }
 
     // Advance entity interpolation

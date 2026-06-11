@@ -10,7 +10,7 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
       const p2 = players[j];
 
       // Only check if at least one player has Bumper Body
-      if (p1.specialVariant !== 'Bumper Body' && p2.specialVariant !== 'Bumper Body') continue;
+      if (!p1.specialVariants.includes('Bumper Body') && !p2.specialVariants.includes('Bumper Body')) continue;
       
       // If one of them is already dead, skip
       if (p1.hp <= 0 || (p1.deadUntil && performance.now() < p1.deadUntil)) continue;
@@ -35,11 +35,11 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
 
         // Flat positional bump for Bumper Body
         const bumpDist = 60;
-        if (p1.specialVariant === 'Bumper Body') {
+        if (p1.specialVariants.includes('Bumper Body')) {
           p2.x += nx * bumpDist;
           p2.y += ny * bumpDist;
         }
-        if (p2.specialVariant === 'Bumper Body') {
+        if (p2.specialVariants.includes('Bumper Body')) {
           p1.x -= nx * bumpDist;
           p1.y -= ny * bumpDist;
         }
@@ -91,11 +91,11 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
           }
         };
 
-        if (p1.specialVariant === 'Bumper Body' && p2.specialVariant !== 'Bumper Body') {
+        if (p1.specialVariants.includes('Bumper Body') && !p2.specialVariants.includes('Bumper Body')) {
           applyBumperDamage(p1, p2);
-        } else if (p2.specialVariant === 'Bumper Body' && p1.specialVariant !== 'Bumper Body') {
+        } else if (p2.specialVariants.includes('Bumper Body') && !p1.specialVariants.includes('Bumper Body')) {
           applyBumperDamage(p2, p1);
-        } else if (p1.specialVariant === 'Bumper Body' && p2.specialVariant === 'Bumper Body') {
+        } else if (p1.specialVariants.includes('Bumper Body') && p2.specialVariants.includes('Bumper Body')) {
           applyBumperDamage(p1, p2);
           applyBumperDamage(p2, p1);
         }

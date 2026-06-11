@@ -12,7 +12,7 @@ interface ProjectileData {
 export default class Projectiles {
   private byId = new Map<string, ProjectileData>();
 
-  constructor(private scene: Phaser.Scene) {}
+  constructor(private scene: Phaser.Scene) { }
 
   has(id: string) {
     return this.byId.has(id);
@@ -20,17 +20,18 @@ export default class Projectiles {
 
   // Create sprite if missing (radius can change)
   // Add velocity parameters
-  ensure(id: string, r: number, vx: number, vy: number, pierce?: boolean): boolean {
+  ensure(id: string, r: number, vx: number, vy: number, isBeam?: boolean): boolean {
     let data = this.byId.get(id);
     if (!data) {
       let sprite: Phaser.GameObjects.Shape;
-      if (pierce) {
-        sprite = this.scene.add.rectangle(0, 0, r * 4, r * 1.5, 0x00ffff).setDepth(5);
+      if (isBeam) {
+        // Longer laser beam visuals
+        sprite = this.scene.add.rectangle(0, 0, r * 10, r * 1.5, 0x00ffff).setDepth(5);
         sprite.setRotation(Math.atan2(vy, vx));
       } else {
         sprite = this.scene.add.circle(0, 0, r, 0xffe066).setDepth(5);
       }
-      this.byId.set(id, { sprite, vx, vy, isBeam: pierce });
+      this.byId.set(id, { sprite, vx, vy, isBeam });
       return true;
     } else {
       if (!data.isBeam) {

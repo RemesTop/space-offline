@@ -143,7 +143,7 @@ export const ioSnapshot = (io: LocalEmitter, world: World) => {
       socketId: op.socketId,
       aim: op.aim,
       level: op.level,
-      specialVariant: op.specialVariant,
+      specialVariants: op.specialVariants,
       altFire: op.altFire,
     });
   }
@@ -159,6 +159,7 @@ export const ioSnapshot = (io: LocalEmitter, world: World) => {
       r: b.r,
       ownerId: b.ownerId,
       pierce: b.pierce,
+      isLaser: b.isLaser,
     });
   }
 

@@ -64,6 +64,7 @@ export const addPlayer = (
       Wings: 0,
     },
     lastDamageTakenAt: 0,
+    specialVariants: [],
   };
   updatePlayerRadius(p);
   world.players.set(id, p);
@@ -120,7 +121,7 @@ export const processInputs = (world: World, now: number) => {
       if (f.fire) tryFire(world, p, f.aim, now);
       
       // Regen Wings logic
-      if (p.specialVariant === 'Regen Wings' && p.hp > 0 && p.hp < p.maxHp) {
+      if (p.specialVariants.includes('Regen Wings') && p.hp > 0 && p.hp < p.maxHp) {
         if (now - (p.lastDamageTakenAt || 0) > 3000) {
           p.hp = Math.min(p.maxHp, p.hp + 5 * (f.dtMs / 1000));
         }
@@ -214,15 +215,17 @@ export const applyLevelChoice = (
   if (!p || !p.pendingOffer) return;
 
   if (choice.family === "Special" && choice.special) {
-    p.specialVariant = choice.special;
+    if (!p.specialVariants.includes(choice.special)) {
+      p.specialVariants.push(choice.special);
+    }
   } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
     p.altFire = choice.alt;
   } else if (choice.family === "Hull" && choice.tier) {
     // Check if Hull is already at max level (4)
     if (p.powerupLevels.Hull < 4) {
       p.powerupLevels.Hull++;
-      // Bot HP upgrade should be significantly reduced for the later levels (hull 3 and after only +20)
-      if (!p.socketId && p.powerupLevels.Hull >= 3) {
+      // HP upgrade is significantly reduced for the later levels (hull 3 and after only +20)
+      if (p.powerupLevels.Hull >= 3) {
         p.maxHp += 20;
         p.hp = Math.min(p.maxHp, p.hp + 20);
       } else {
@@ -295,15 +298,15 @@ export const applyLevelChoice = (
       wingsLevel: p.powerupLevels.Wings,
       hullLevel: p.powerupLevels.Hull,
       altFire: p.altFire,
-      specialVariant: p.specialVariant,
+      specialVariants: p.specialVariants,
       powerupLevels: p.powerupLevels,
     },
   });
 };
 
 const rollChoices = (p: Player): PowerupChoice[] => {
-  if (p.level >= 5 && !p.specialVariant) {
-    return [
+  if ([5, 10, 15].includes(p.level)) {
+    const allSpecials: PowerupChoice[] = [
       { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "+15 HP per kill" },
       { family: "Special", special: "Zero gravity", label: "Zero gravity", desc: "No damage/collision from planets/gravity" },
       { family: "Special", special: "Bumper Body", label: "Bumper Body", desc: "Damage and push other ships away heavily" },
@@ -311,6 +314,16 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       { family: "Special", special: "Laser Beam", label: "Laser Beam", desc: "Shoot piercing beams" },
       { family: "Special", special: "Bullet hell", label: "Bullet hell", desc: "Shoot bullets forward and backward" },
     ];
+    // Filter out ones already picked
+    const availableSpecials = allSpecials.filter(c => !p.specialVariants.includes(c.special as string));
+    
+    // Shuffle
+    for (let i = availableSpecials.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableSpecials[i], availableSpecials[j]] = [availableSpecials[j], availableSpecials[i]];
+    }
+    // Return up to 4
+    return availableSpecials.slice(0, 4);
   }
 
   const arr: PowerupChoice[] = [];
@@ -325,7 +338,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "Hull" as const,
       tier: nextLevel,
       label: `Hull Lv${nextLevel + 1}`,
-      desc: "+40 Max HP",
+      desc: nextLevel > 2 ? "+20 Max HP" : "+40 Max HP",
     });
   }
 
@@ -419,27 +432,26 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     ttl: number,
     angleOffset = 0,
     pierce = false,
+    isLaser = false,
   ) => {
-    const offsets = [angleOffset];
-    for (const off of offsets) {
-      const id = nanoid();
-      const vx = Math.cos(aim + off) * speed;
-      const vy = Math.sin(aim + off) * speed;
-      const muzzleDist = p.r + radius - 50; // spawn at ship nose
-      const b: Bullet = {
-        id,
-        ownerId: p.id,
-        x: p.x + Math.cos(aim + off) * muzzleDist,
-        y: p.y + Math.sin(aim + off) * muzzleDist,
-        vx,
-        vy,
-        r: radius,
-        damage,
-        ttl,
-        pierce,
-      };
-      world.bullets.set(id, b);
-    }
+    const id = nanoid();
+    const vx = Math.cos(aim + angleOffset) * speed;
+    const vy = Math.sin(aim + angleOffset) * speed;
+    const muzzleDist = p.r + radius - 50; // spawn at ship nose
+    const b: Bullet = {
+      id,
+      ownerId: p.id,
+      x: p.x + Math.cos(aim + angleOffset) * muzzleDist,
+      y: p.y + Math.sin(aim + angleOffset) * muzzleDist,
+      vx,
+      vy,
+      r: radius,
+      damage,
+      ttl,
+      pierce,
+      isLaser,
+    };
+    world.bullets.set(id, b);
   };
 
   if (p.altFire === "railgun") {
@@ -450,6 +462,7 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
       ALT_FIRE.railgun.lifetimeMs,
       0,
       true,
+      true, // visually a laser
     );
     p.lastFireAt = now - 0 + ALT_FIRE.railgun.cooldownMs;
     return;
@@ -472,28 +485,21 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     return;
   }
 
-  if (p.specialVariant === "Laser Beam") {
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, true);
-    p.lastFireAt = now;
-    return;
-  }
-  if (p.specialVariant === "Twin Weapon") {
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0.1, false);
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, -0.1, false);
-    p.lastFireAt = now;
-    return;
-  }
-  if (p.specialVariant === "Bullet hell") {
-    // Forward bullet
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0);
-    // Backward bullet
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, Math.PI);
-    p.lastFireAt = now;
-    return;
+  const hasLaser = p.specialVariants.includes("Laser Beam");
+  const hasTwin = p.specialVariants.includes("Twin Weapon");
+  const hasHell = p.specialVariants.includes("Bullet hell");
+
+  if (hasTwin) {
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0.1, hasLaser, hasLaser);
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, -0.1, hasLaser, hasLaser);
+  } else {
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, hasLaser, hasLaser);
   }
 
-  // primary
-  fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, false);
+  if (hasHell) {
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, Math.PI, hasLaser, hasLaser);
+  }
+
   p.lastFireAt = now;
 };
 

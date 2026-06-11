@@ -15,8 +15,9 @@ export const spawnRocks = (world: World, dtMs: number) => {
       const id = nanoid();
       const r = rndRange(35, 75);
       
+      // Spawn outside map edges and drift inward
       const side = Math.floor(Math.random() * 3); // 0 = bottom, 1 = left, 2 = right
-      const spawnDist = 400; // spawn outside world boundary
+      const spawnDist = 200;
       const speed = rndRange(10, 40);
       let x = 0, y = 0, vx = 0, vy = 0;
       
@@ -65,7 +66,7 @@ export const handleRockCollisions = (world: World, now: number) => {
         r.y -= ny * overlap * 0.5;
         
         // Bumper body logic
-        if (p.specialVariant === 'Bumper Body') {
+        if (p.specialVariants.includes('Bumper Body')) {
           // Bumper body pushes rock away strongly
           r.x -= nx * 60;
           r.y -= ny * 60;
@@ -140,29 +141,19 @@ export const handleRockCollisions = (world: World, now: number) => {
   }
   for (const id of bulletsToRemove) world.bullets.delete(id);
 
-  // Cleanup distant rocks so they can respawn by teleporting
+  // Wrap rocks around the map so they never "go invisible" for long
+  const wrapMargin = 400;
   for (const [id, r] of world.rocks) {
-    if (r.x < -2000 || r.x > world.w + 2000 || r.y < -2000 || r.y > world.h + 2000) {
-      const side = Math.floor(Math.random() * 3); // 0 = bottom, 1 = left, 2 = right
-      const spawnDist = 400; // spawn outside world boundary
-      const speed = rndRange(10, 40);
-      
-      if (side === 0) { // bottom
-        r.x = rndRange(0, world.w);
-        r.y = world.h + spawnDist;
-        r.vx = rndRange(-speed, speed);
-        r.vy = -speed;
-      } else if (side === 1) { // left
-        r.x = -spawnDist;
-        r.y = rndRange(0, world.h);
-        r.vx = speed;
-        r.vy = rndRange(-speed, speed);
-      } else { // right
-        r.x = world.w + spawnDist;
-        r.y = rndRange(0, world.h);
-        r.vx = -speed;
-        r.vy = rndRange(-speed, speed);
-      }
+    if (r.x < -wrapMargin) {
+      r.x = world.w + wrapMargin;
+    } else if (r.x > world.w + wrapMargin) {
+      r.x = -wrapMargin;
+    }
+    
+    if (r.y < -wrapMargin) {
+      r.y = world.h + wrapMargin;
+    } else if (r.y > world.h + wrapMargin) {
+      r.y = -wrapMargin;
     }
   }
 };

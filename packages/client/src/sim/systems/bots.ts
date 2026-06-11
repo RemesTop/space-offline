@@ -48,6 +48,8 @@ const BOT_NAMES = [
   "Dr Sykerö"
 ];
 
+export const getRandomBotName = () => BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+
 export type BotPersonality = "Aggressive" | "Cowardly" | "Scavenger" | "Balanced";
 
 export type Bot = {
@@ -72,10 +74,40 @@ export const spawnBot = (world: World): void => {
 
   // Use empty socketId for bots - they don't have real sockets
   const player = addPlayer(world, botId, spawn, "");
+  
+  let maxPlayerLevel = 0;
+  for (const p of world.players.values()) {
+    if (p.socketId && p.level > maxPlayerLevel) {
+      maxPlayerLevel = p.level;
+    }
+  }
+
+  if (!player.isGiant && maxPlayerLevel >= 15) {
+    player.maxHp += 50;
+    player.hp = player.maxHp;
+    for (let i = 0; i < 2; i++) {
+      const upgradeRnd = Math.random();
+      if (upgradeRnd < 0.25) {
+        player.powerupLevels.Damage++;
+        player.damage += 4;
+      } else if (upgradeRnd < 0.5) {
+        player.powerupLevels.Engine++;
+        player.maxSpeed += 40;
+        player.accel += 80;
+      } else if (upgradeRnd < 0.75) {
+        player.powerupLevels.FireRate++;
+        player.fireCooldownMs = Math.max(100, player.fireCooldownMs - 30);
+      } else {
+        player.powerupLevels.Hull++;
+        player.maxHp += 40;
+        player.hp += 40;
+      }
+    }
+  }
   player.invulnUntil = performance.now() + 3000;
 
   // Give bot a random name
-  const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  const botName = getRandomBotName();
   player.name = botName;
 
   const personalities: BotPersonality[] = ["Aggressive", "Cowardly", "Scavenger", "Balanced"];
@@ -226,6 +258,12 @@ export const updateBots = (world: World, now: number): void => {
 
       bot.targetX = Math.max(50, Math.min(world.w - 50, bot.targetX));
       bot.targetY = Math.max(50, Math.min(world.h - 50, bot.targetY));
+
+      if (Math.hypot(bot.targetX - player.x, bot.targetY - player.y) < 20) {
+         // We are stuck (likely at a wall). Move towards the center!
+         bot.targetX = world.w / 2 + (Math.random() - 0.5) * 400;
+         bot.targetY = world.h / 2 + (Math.random() - 0.5) * 400;
+      }
     }
 
     if (bot.targetX === undefined || bot.targetY === undefined) continue;
@@ -257,6 +295,27 @@ export const updateBots = (world: World, now: number): void => {
     if (dist > 30 && Math.abs(aimDiff) < Math.PI / 3) {
       thrust.x = Math.cos(bot.currentAim);
       thrust.y = Math.sin(bot.currentAim);
+    }
+
+    // Ensure all bots shoot if there's a player right in front of them, even if not explicitly targeting them
+    if (!bot.shouldFire) {
+      for (const p of world.players.values()) {
+        if (p.id !== botId && (!p.deadUntil || now >= p.deadUntil) && p.hp > 0) {
+          const pdx = p.x - player.x;
+          const pdy = p.y - player.y;
+          const pDist = Math.hypot(pdx, pdy);
+          if (pDist < 400) {
+            const pAim = Math.atan2(pdy, pdx);
+            let pAimDiff = pAim - bot.currentAim;
+            while (pAimDiff > Math.PI) pAimDiff -= Math.PI * 2;
+            while (pAimDiff < -Math.PI) pAimDiff += Math.PI * 2;
+            if (Math.abs(pAimDiff) < Math.PI / 6) { // within 30 degrees
+              bot.shouldFire = true;
+              break;
+            }
+          }
+        }
+      }
     }
 
     const input = {
