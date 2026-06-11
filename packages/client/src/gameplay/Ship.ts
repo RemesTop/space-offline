@@ -187,8 +187,9 @@ export default class Ship {
     hullLevel?: number;
     isGiant?: boolean;
     specialVariants?: string[];
+    powerupLevels?: any;
   }) {
-    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, wingsLevel, isGiant, specialVariants } = stats;
+    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, wingsLevel, isGiant, specialVariants, powerupLevels } = stats;
 
     this._specialVariants = specialVariants;
 
@@ -199,14 +200,16 @@ export default class Ship {
     if (specialVariants?.includes('Bumper Body')) this.body.setTexture('raketti/bodyspecial.png');
 
     // Weapon texture based on fire cooldown - changes at level 2, then level 4
-    // Level 1: 220ms (texture 0), Level 2-3: <220ms (texture 1), Level 4+: <=145ms (texture 2)
-    const weaponLevel = fireCooldownMs >= 220 ? 0 : fireCooldownMs > 150 ? 1 : 2;
+    // Level 1: (texture 0), Level 2-3: (texture 1), Level 4+: (texture 2)
+    const fireRateLvl = powerupLevels?.FireRate || 0;
+    const weaponLevel = fireRateLvl < 1 ? 0 : fireRateLvl < 3 ? 1 : 2;
     this.weapon.setTexture(`raketti/weapon${weaponLevel}.png`);
     if (specialVariants?.includes('Twin Weapon')) this.weapon.setTexture('raketti/weaponspecial.png');
 
     // Point texture based on base damage - changes at level 2, then level 4
-    // Level 1: 12 damage (texture 0), Level 2-3: 16+ damage (texture 1), Level 4+: 24+ damage (texture 2)
-    const pointLevel = damage <= 12 ? 0 : damage < 24 ? 1 : 2;
+    // Level 1: (texture 0), Level 2-3: (texture 1), Level 4+: (texture 2)
+    const damageLvl = powerupLevels?.Damage || 0;
+    const pointLevel = damageLvl < 1 ? 0 : damageLvl < 3 ? 1 : 2;
     this.point.setTexture(`raketti/point${pointLevel}.png`);
 
     // Wings texture based on wings level - changes at level 2, then level 4
@@ -216,8 +219,9 @@ export default class Ship {
     if (specialVariants?.includes('Regen Wings')) this.wings.setTexture('raketti/wingsspecial.png');
 
     // Window texture based on magnet radius - changes at level 2, then level 4
-    // Level 1: 100 radius (texture 0), Level 2-3: 130+ radius (texture 1), Level 4+: 220+ radius (texture 2)
-    const windowLevel = magnetRadius <= 100 ? 0 : magnetRadius < 190 ? 1 : 2;
+    // Level 1: (texture 0), Level 2-3: (texture 1), Level 4+: (texture 2)
+    const magnetLvl = powerupLevels?.Magnet || 0;
+    const windowLevel = magnetLvl < 1 ? 0 : magnetLvl < 3 ? 1 : 2;
     this.window.setTexture(`raketti/window${windowLevel}.png`);
     if (specialVariants?.includes('Laser Beam')) this.window.setTexture('raketti/windowspecial.png');
     

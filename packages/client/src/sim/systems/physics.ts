@@ -44,34 +44,6 @@ export const applyGravity = (world: World, dt: number) => {
       }
 
       if (w.type === "planet" && d < w.radius + p.r + 30) { // Increased collision radius by 30
-        // Damage-over-time based on impact speed (no instant large chunk)
-        const impactSpeed = Math.hypot(p.vx, p.vy);
-        const { speedThreshold, baseDps, maxSpeedMultiplier } = GRAVITY.planetCollision;
-        if (impactSpeed > speedThreshold) {
-          const speedFactor = Math.min(maxSpeedMultiplier, impactSpeed / speedThreshold);
-          const damage = baseDps * speedFactor * dt; // DPS scaled by speed and frame time
-          const prevHp = p.hp;
-          p.hp -= damage;
-          p.lastDamageTakenAt = performance.now();
-          if (prevHp > 0 && p.hp <= 0) {
-            p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
-            // Emit to all players so everyone sees the explosion
-            for (const player of world.players.values()) {
-              if (player.socketId) {
-                world.io?.emitEvent(player.socketId, {
-                  type: "Kill",
-                  killerId: null,
-                  victimId: p.id,
-                  victimScore: p.score,
-                  victimLevel: p.level,
-                  x: p.x,
-                  y: p.y,
-                });
-              }
-            }
-            spawnDeathPickups(world, p);
-          }
-        }
         // hard collision bounce
         const nx = dx / d,
           ny = dy / d;
@@ -86,6 +58,29 @@ export const applyGravity = (world: World, dt: number) => {
         if (vDotN > 0) {
           p.vx -= 1.8 * vDotN * nx;
           p.vy -= 1.8 * vDotN * ny;
+          
+          if (performance.now() >= p.invulnUntil) {
+            const prevHp = p.hp;
+            p.hp -= 20; // Flat damage, just like rocks
+            p.lastDamageTakenAt = performance.now();
+            if (prevHp > 0 && p.hp <= 0) {
+              p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
+              for (const player of world.players.values()) {
+                if (player.socketId) {
+                  world.io?.emitEvent(player.socketId, {
+                    type: "Kill",
+                    killerId: null,
+                    victimId: p.id,
+                    victimScore: p.score,
+                    victimLevel: p.level,
+                    x: p.x,
+                    y: p.y,
+                  });
+                }
+              }
+              spawnDeathPickups(world, p);
+            }
+          }
         }
       }
     }

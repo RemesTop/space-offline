@@ -225,6 +225,7 @@ export default class GameScene extends Phaser.Scene {
       globalNet = new Net();
     }
     this.net = globalNet;
+    this.net.youId = null; // Prevent tracking the old player while NamePrompt is active
 
     (window as any).net = this.net;
     this.cameras.main.setBackgroundColor('#05070b');
@@ -415,6 +416,7 @@ export default class GameScene extends Phaser.Scene {
         // If YOU died, end run (only once)
         if (!this.gameEnded && e.victimId === this.net.youId) {
           this.gameEnded = true;
+          this.levelModal.hide(); // Hide instantly on death
           this.wingsLevel = 0;
           this.updateCameraZoom();
           const now = performance.now();
@@ -438,13 +440,22 @@ export default class GameScene extends Phaser.Scene {
               if (respawn) {
                 this.handleRespawn();
               } else {
-                window.location.reload();
+                // Return to NamePrompt while keeping simulation running
+                this.levelModal.hide();
+                if (this.net.youId) {
+                  const player = this.net.world.players.get(this.net.youId);
+                  if (player) player.pendingOffer = false;
+                }
+                try { this.menuMusic?.stop(); } catch {}
+                try { this.gameMusic?.stop(); } catch {}
+                this.scene.restart();
               }
             });
           }, 1500); // 1.5s delay to watch explosion
           this.fadeToMenuMusic();
         }
       } else if (e.type === 'LevelUpOffer') {
+        if (this.gameEnded) return; // Prevent level up from showing if dead
         // Get current player stats to pass to modal
         const you = this.interp.get(this.net.youId || "");
         const choice = await this.levelModal.choose(e.choices, you);
@@ -465,6 +476,7 @@ export default class GameScene extends Phaser.Scene {
             engineLevel: updated.engineLevel,
             wingsLevel: updated.wingsLevel,
             hullLevel: updated.hullLevel,
+            powerupLevels: updated.powerupLevels,
           });
           const youId = this.net.youId;
           if (youId) {
@@ -699,6 +711,7 @@ export default class GameScene extends Phaser.Scene {
             wingsLevel: e.powerupLevels?.Wings,
             isGiant: e.isGiant,
             specialVariants: (e as any).specialVariants,
+            powerupLevels: (e as any).powerupLevels,
           });
         }
       } else if (e.kind === "rock") {

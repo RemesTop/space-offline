@@ -152,6 +152,11 @@ export const levelUp = (world: World, playerId: string) => {
   player.level++;
   player.xp = 0; // Reset XP for next level
   player.xpToNext = xpForLevel(player.level + 1);
+  if (player.level === 10) {
+    player.maxSpeed = Math.max(50, player.maxSpeed - 50);
+  } else if (player.level === 15) {
+    player.maxSpeed = Math.max(50, player.maxSpeed - 80);
+  }
   player.pendingOffer = true;
   sendOffer(world, player);
 };
@@ -165,6 +170,11 @@ export const giveXP = (world: World, p: Player, value: number) => {
     p.xp -= p.xpToNext;
     p.xpToNext = xpForLevel(p.level + 1);
     p.pendingOffersCount = (p.pendingOffersCount || 0) + 1;
+    if (p.level === 10) {
+      p.maxSpeed = Math.max(50, p.maxSpeed - 50);
+    } else if (p.level === 15) {
+      p.maxSpeed = Math.max(50, p.maxSpeed - 80);
+    }
     leveledUp = true;
   }
   if (leveledUp && !p.pendingOffer) {
@@ -219,6 +229,8 @@ export const applyLevelChoice = (
       p.specialVariants.push(choice.special);
       if (choice.special === "Bumper Body" && !p.socketId) {
         p.accel += 80;
+      } else if (choice.special === "Laser Beam") {
+        p.fireCooldownMs += 45;
       }
     }
   } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
@@ -227,8 +239,8 @@ export const applyLevelChoice = (
     // Check if Hull is already at max level (4)
     if (p.powerupLevels.Hull < 4) {
       p.powerupLevels.Hull++;
-      // HP upgrade is significantly reduced for the later levels (hull 3 and after only +20)
-      if (p.powerupLevels.Hull >= 3) {
+      // HP upgrade is significantly reduced for the later levels (hull 2 and after only +20)
+      if (p.powerupLevels.Hull >= 2) {
         p.maxHp += 20;
         p.hp = Math.min(p.maxHp, p.hp + 20);
       } else {
@@ -239,10 +251,14 @@ export const applyLevelChoice = (
   } else if (choice.family === "Damage" && choice.tier) {
     if (p.powerupLevels.Damage < 4) {
       p.powerupLevels.Damage++;
-      if (p.powerupLevels.Damage > 1) {
-        // Diminishing returns starting a level earlier (lvl 2+ gets +2 instead of +4)
+      if (p.powerupLevels.Damage > 2) {
+        // Lvl 4+ gets +1
+        p.damage += 1;
+      } else if (p.powerupLevels.Damage > 1) {
+        // Lvl 3 gets +2
         p.damage += 2;
       } else {
+        // Lvl 2 gets +4
         p.damage += 4;
       }
     }
@@ -261,10 +277,14 @@ export const applyLevelChoice = (
   } else if (choice.family === "FireRate" && choice.tier) {
     if (p.powerupLevels.FireRate < 4) {
       p.powerupLevels.FireRate++;
-      if (p.powerupLevels.FireRate > 0) {
-        // Diminishing returns starting a level earlier (lvl 2+ gets -15 instead of -30)
+      if (p.powerupLevels.FireRate > 2) {
+        // Lvl 4+ gets -10
+        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 10);
+      } else if (p.powerupLevels.FireRate > 1) {
+        // Lvl 3 gets -15
         p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 15);
       } else {
+        // Lvl 2 gets -30
         p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 30);
       }
     }
@@ -346,7 +366,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "Hull" as const,
       tier: nextLevel,
       label: `Hull Lv${nextLevel + 1}`,
-      desc: nextLevel > 2 ? "+20 Max HP" : "+40 Max HP",
+      desc: nextLevel > 1 ? "+20 Max HP" : "+40 Max HP",
     });
   }
 
@@ -356,7 +376,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "Damage" as const,
       tier: nextLevel,
       label: `Damage Lv${nextLevel + 1}`,
-      desc: "+4 Damage",
+      desc: nextLevel > 2 ? "+1 Damage" : nextLevel > 1 ? "+2 Damage" : "+4 Damage",
     });
   }
 
@@ -376,7 +396,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "FireRate" as const,
       tier: nextLevel,
       label: `Fire Rate Lv${nextLevel + 1}`,
-      desc: nextLevel > 2 ? "-15ms Cooldown" : "-30ms Cooldown",
+      desc: nextLevel > 2 ? "-10ms Cooldown" : nextLevel > 1 ? "-15ms Cooldown" : "-30ms Cooldown",
     });
   }
 
@@ -498,20 +518,21 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
   const damageLvl = p.powerupLevels.Damage || 0;
   const scaledRadius = BULLET.radius + damageLvl * 1.5;
   const isRedLaser = hasLaser && damageLvl >= 3;
+  const currentSpeed = hasLaser ? BULLET.speed * 1.3 : BULLET.speed;
 
   if (hasTwin) {
-    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0.15, hasLaser, hasLaser, cannonOffset, isRedLaser);
-    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, -0.15, hasLaser, hasLaser, -cannonOffset, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, 0.15, hasLaser, hasLaser, cannonOffset, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, -0.15, hasLaser, hasLaser, -cannonOffset, isRedLaser);
   } else if (p.powerupLevels.FireRate >= 1) {
     p.bulletsFired = (p.bulletsFired || 0) + 1;
     const side = (p.bulletsFired % 2 === 0) ? cannonOffset : -cannonOffset;
-    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, side, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, side, isRedLaser);
   } else {
-    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, 0, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, 0, isRedLaser);
   }
 
   if (hasHell) {
-    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, Math.PI, hasLaser, hasLaser, 0, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, Math.PI, hasLaser, hasLaser, 0, isRedLaser);
   }
 
   p.lastFireAt = now;

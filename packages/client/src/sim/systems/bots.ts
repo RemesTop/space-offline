@@ -129,10 +129,7 @@ export const spawnBot = (world: World): void => {
   const botName = getRandomBotName();
   player.name = botName;
 
-  let personalities: BotPersonality[] = ["Aggressive", "Cowardly", "Scavenger", "Balanced"];
-  if (maxPlayerLevel > 6) {
-    personalities = ["Aggressive", "Pro", "Scavenger", "Balanced"];
-  }
+  const personalities: BotPersonality[] = ["Aggressive", "Pro", "Scavenger", "Balanced"];
   let personality = personalities[Math.floor(Math.random() * personalities.length)];
   if (player.isGiant) {
     personality = "Aggressive";
@@ -147,7 +144,7 @@ export const spawnBot = (world: World): void => {
     aggressiveness = Math.random() * 0.3; // 0.0 to 0.3
   } else if (personality === "Pro") {
     aggressiveness = Math.random() * 0.2 + 0.8;
-    aimOffset = (Math.random() - 0.5) * 0.05; // Excellent aim
+    aimOffset = 0; // Perfect aim
   }
 
   if (personality === "Pro" || personality === "Scavenger") {
@@ -169,6 +166,22 @@ export const spawnBot = (world: World): void => {
 
 export const updateBots = (world: World, now: number): void => {
   const THINK_INTERVAL = 200; // ms between AI decisions
+
+  // Re-adopt any orphaned bots (e.g. after a hot-module reload clears the bots map)
+  for (const [id, player] of world.players) {
+    if (!player.socketId && !bots.has(id)) {
+      if (!player.name) player.name = getRandomBotName();
+      bots.set(id, {
+        playerId: id,
+        lastThinkAt: now,
+        aggressiveness: 0.8,
+        aimOffset: 0.1,
+        currentAim: Math.random() * Math.PI * 2,
+        personality: (player.level && player.level > 6) ? "Pro" : "Aggressive",
+      });
+      console.log(`[bots] Re-adopted orphaned bot: ${player.name}`);
+    }
+  }
 
   for (const [botId, bot] of bots) {
     const player = world.players.get(botId);
@@ -294,7 +307,8 @@ export const updateBots = (world: World, now: number): void => {
         while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
         while (aimDiff < -Math.PI) aimDiff += Math.PI * 2;
 
-        bot.shouldFire = nearbyPlayers[0].dist < 250 && Math.abs(aimDiff) <= Math.PI / 3;
+        const fireRange = bot.personality === "Pro" ? 400 : 250;
+        bot.shouldFire = nearbyPlayers[0].dist < fireRange && Math.abs(aimDiff) <= Math.PI / 3;
       } else if (nearbyPickups.length > 0) {
         const target = nearbyPickups[0].pickup;
         bot.targetX = target.x;
