@@ -18,7 +18,7 @@ export const spawnRocks = (world: World, dtMs: number) => {
       // Spawn outside map edges and drift inward
       const side = Math.floor(Math.random() * 3); // 0 = bottom, 1 = left, 2 = right
       const spawnDist = 200;
-      const speed = rndRange(10, 40);
+      const speed = rndRange(10, 25);
       let x = 0, y = 0, vx = 0, vy = 0;
       
       if (side === 0) { // bottom

@@ -225,6 +225,9 @@ export default class GameScene extends Phaser.Scene {
       globalNet = new Net();
     }
     this.net = globalNet;
+    if (this.net.youId && this.net.world.players.has(this.net.youId)) {
+      this.net.world.players.delete(this.net.youId);
+    }
     this.net.youId = null; // Prevent tracking the old player while NamePrompt is active
 
     (window as any).net = this.net;
@@ -338,16 +341,17 @@ export default class GameScene extends Phaser.Scene {
     const isDesktop = this.sys.game.device.os.desktop;
     this.alwaysThrust = isDesktop;
 
-    // Spacebar fires
+    // Spacebar fires (pass false to allow typing spaces in NamePrompt)
     this.space = this.input.keyboard?.addKey(
       Phaser.Input.Keyboard.KeyCodes.SPACE,
+      false
     ) as Phaser.Input.Keyboard.Key;
 
-    // WASD Movement
-    this.keyW = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.W) as Phaser.Input.Keyboard.Key;
-    this.keyA = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.A) as Phaser.Input.Keyboard.Key;
-    this.keyS = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.S) as Phaser.Input.Keyboard.Key;
-    this.keyD = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.D) as Phaser.Input.Keyboard.Key;
+    // WASD Movement (pass false to prevent capturing input events, allowing typing in NamePrompt)
+    this.keyW = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.W, false) as Phaser.Input.Keyboard.Key;
+    this.keyA = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.A, false) as Phaser.Input.Keyboard.Key;
+    this.keyS = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.S, false) as Phaser.Input.Keyboard.Key;
+    this.keyD = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.D, false) as Phaser.Input.Keyboard.Key;
 
     // Debug key for testing XP - T key gives +25 XP
     this.input.keyboard?.on("keydown-T", () => {
