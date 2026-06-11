@@ -69,5 +69,7 @@ export class LevelUpModal {
     return result;
   }
 
-
+  destroy() {
+    this.root.remove();
+  }
 }

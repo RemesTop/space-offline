@@ -75,5 +75,6 @@ export class GameOverModal {
   }
 
   hide() { this.root.style.display = 'none'; }
+  destroy() { this.root.remove(); }
 }
 

@@ -235,6 +235,10 @@ export default class GameScene extends Phaser.Scene {
     }
     this.planetSprites = new Map();
 
+    if (this.touchFireBtn) {
+      this.touchFireBtn.remove();
+    }
+
     // Use global Net instance to persist simulation state across respawns
     if (!globalNet) {
       globalNet = new Net();
@@ -269,14 +273,9 @@ export default class GameScene extends Phaser.Scene {
     }
     this.pickups = new Pickups(this);
 
-    // Initialize HUD
-    if (!this.hud) {
-      this.hud = new HUD();
-      this.levelModal = new LevelUpModal();
-      this.gameOverModal = new GameOverModal();
-    } else {
-      this.hud.setScoreboard([]);
-    }
+    if (this.hud) this.hud.destroy();
+    if (this.levelModal) this.levelModal.destroy();
+    if (this.gameOverModal) this.gameOverModal.destroy();
 
     // Audio setup (re-create sounds each time to avoid overlap)
     const storedVol = localStorage.getItem('globalVolume');
@@ -336,25 +335,6 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // Touch FIRE button (mobile)
-    this.touchFireBtn = document.createElement("div");
-    this.touchFireBtn.className = "touch-fire";
-    this.touchFireBtn.innerText = "FIRE";
-    document.body.appendChild(this.touchFireBtn);
-    this.touchFireBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      this.touchFireHeld = !this.touchFireHeld; // Toggle fire state
-      this.updateTouchFireButton();
-    });
-    this.touchFireBtn.addEventListener("touchstart", (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-    }, { passive: false });
-    
-    // Initialize button appearance
-    this.updateTouchFireButton();
-
     // Input mode: desktop vs mobile
     const isDesktop = this.sys.game.device.os.desktop;
     this.alwaysThrust = isDesktop;
@@ -404,6 +384,29 @@ export default class GameScene extends Phaser.Scene {
     // Ask for player name (skip prompt on restart)
     let name = await this.namePromise;
     this.playerName = name;
+    
+    // Now that the main menu is gone, initialize the game UI
+    this.hud = new HUD();
+    this.levelModal = new LevelUpModal();
+    this.gameOverModal = new GameOverModal();
+
+    // Touch FIRE button (mobile)
+    this.touchFireBtn = document.createElement("div");
+    this.touchFireBtn.className = "touch-fire";
+    this.touchFireBtn.innerText = "FIRE";
+    document.body.appendChild(this.touchFireBtn);
+    this.touchFireBtn.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.touchFireHeld = !this.touchFireHeld; // Toggle fire state
+      this.updateTouchFireButton();
+    });
+    this.touchFireBtn.addEventListener("touchstart", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, { passive: false });
+    this.updateTouchFireButton();
+
     this.fadeToGameMusic();
 
     // Start connecting (resolves on 'welcome'), register handlers, then join, then await welcome
@@ -704,7 +707,7 @@ export default class GameScene extends Phaser.Scene {
         playerIds.add(e.id);
         if (!this.ships.has(e.id)) {
           const ship = new Ship(this, { scale: 0.03, ringRadius: 18, showNose: true });
-          const tint = e.id === you.id ? SELF_TINT : (e.isGiant ? 0x555555 : OTHER_TINT);
+          const tint = e.id === you.id ? SELF_TINT : (e.isGiant ? 0xb388ff : OTHER_TINT);
           ship.setTint(tint);
           this.ships.set(e.id, ship);
         }

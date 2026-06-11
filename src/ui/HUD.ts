@@ -36,13 +36,13 @@ export class HUD {
     // Initialize with base (all 0) so panel is never empty before first snapshot
     this.setPowerups({});
 
-    // Create velocity panel in bottom right corner (or under leaderboard)
+    // Create velocity panel inside powerups panel, top right corner
     this.velocityPanel = document.createElement("div");
     this.velocityPanel.className = "velocity-panel";
     this.velocityPanel.innerHTML = `
       <span class="velocity-label">Speed:</span> <span class="velocity-value">0</span>
     `;
-    document.body.appendChild(this.velocityPanel);
+    this.powerupsPanel.appendChild(this.velocityPanel);
 
     this.bars = {
       hp: hp.firstElementChild as HTMLDivElement,
@@ -155,5 +155,16 @@ export class HUD {
       })
       .join("<br/>");
     this.board.innerHTML = `<strong>Leaderboard</strong><br/>${lines || "No players"}`;
+  }
+
+  destroy() {
+    this.root.remove();
+    this.powerupsPanel.remove();
+    this.velocityPanel.remove();
+    // Remove barsWrap
+    const barsWrap = this.bars.hp.parentElement?.parentElement;
+    if (barsWrap && barsWrap.classList.contains('bottom-bars')) {
+      barsWrap.remove();
+    }
   }
 }
