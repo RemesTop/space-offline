@@ -45,12 +45,25 @@ const BOT_NAMES = [
   "Arch linux",
   "Holy C",
   "Tohtori robotnik",
-  "Dr Sykerö"
+  "Dr Sykerö",
+  "Tiimalasitimanttimatti",
+  "Oispa töitä",
+  "Itsekkin työtön",
+  "Mitä tää tekee",
+  "Cleverbot",
+  "Skynet",
+  "Rombotti",
+  "Playstation 2 Slim",
+  "Internet Explorer",
+  "Tekoälytön",
+  "Sekoälyllinen",
+  "I play this allday",
+  "GLaDOS"
 ];
 
 export const getRandomBotName = () => BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
 
-export type BotPersonality = "Aggressive" | "Cowardly" | "Scavenger" | "Balanced";
+export type BotPersonality = "Aggressive" | "Cowardly" | "Scavenger" | "Balanced" | "Pro";
 
 export type Bot = {
   playerId: string;
@@ -74,7 +87,7 @@ export const spawnBot = (world: World): void => {
 
   // Use empty socketId for bots - they don't have real sockets
   const player = addPlayer(world, botId, spawn, "");
-  
+
   let maxPlayerLevel = 0;
   for (const p of world.players.values()) {
     if (p.socketId && p.level > maxPlayerLevel) {
@@ -115,7 +128,10 @@ export const spawnBot = (world: World): void => {
   const botName = getRandomBotName();
   player.name = botName;
 
-  const personalities: BotPersonality[] = ["Aggressive", "Cowardly", "Scavenger", "Balanced"];
+  let personalities: BotPersonality[] = ["Aggressive", "Cowardly", "Scavenger", "Balanced"];
+  if (maxPlayerLevel > 6) {
+    personalities = ["Aggressive", "Pro", "Scavenger", "Balanced"];
+  }
   let personality = personalities[Math.floor(Math.random() * personalities.length)];
   if (player.isGiant) {
     personality = "Aggressive";
@@ -128,6 +144,13 @@ export const spawnBot = (world: World): void => {
     aimOffset = (Math.random() - 0.5) * 0.1; // Better aim
   } else if (personality === "Cowardly") {
     aggressiveness = Math.random() * 0.3; // 0.0 to 0.3
+  } else if (personality === "Pro") {
+    aggressiveness = Math.random() * 0.2 + 0.8;
+    aimOffset = (Math.random() - 0.5) * 0.05; // Excellent aim
+  }
+
+  if (personality === "Pro" || personality === "Scavenger") {
+    player.accel += 40; // Increased base acceleration
   }
 
   const bot: Bot = {
@@ -190,7 +213,8 @@ export const updateBots = (world: World, now: number): void => {
         }))
         .filter(({ dist }) => dist < pickupSearchRadius)
         .sort((a, b) => {
-          if (player.hp < player.maxHp * 0.5) {
+          const inFight = bot.personality === "Pro" && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500;
+          if (player.hp < player.maxHp * 0.5 || inFight) {
             if (a.pickup.type === "hp" && b.pickup.type !== "hp") return -1;
             if (b.pickup.type === "hp" && a.pickup.type !== "hp") return 1;
           }
@@ -203,16 +227,37 @@ export const updateBots = (world: World, now: number): void => {
 
       let avoidX = 0;
       let avoidY = 0;
-      for (const well of world.wells) {
-        const dx = player.x - well.x;
-        const dy = player.y - well.y;
-        const dist = Math.hypot(dx, dy);
-        const dangerRadius = well.radius + 80;
 
-        if (dist < dangerRadius && dist > 1) {
-          const strength = (dangerRadius - dist) / dangerRadius;
-          avoidX += (dx / dist) * strength * 300;
-          avoidY += (dy / dist) * strength * 300;
+      const ignorePlanets = player.specialVariants.includes("Zero gravity");
+
+      if (!ignorePlanets) {
+        for (const well of world.wells) {
+          const dx = player.x - well.x;
+          const dy = player.y - well.y;
+          const dist = Math.hypot(dx, dy);
+          const dangerRadius = well.radius + 80;
+
+          if (dist < dangerRadius && dist > 1) {
+            const strength = (dangerRadius - dist) / dangerRadius;
+            avoidX += (dx / dist) * strength * 300;
+            avoidY += (dy / dist) * strength * 300;
+          }
+        }
+      }
+
+      const ignoreRocks = player.specialVariants.includes("Bumper Body");
+      const shouldAvoidRocks = bot.personality === "Pro" || bot.personality === "Scavenger" || bot.personality === "Balanced";
+      if (shouldAvoidRocks && !ignoreRocks) {
+        for (const rock of world.rocks.values()) {
+          const dx = player.x - rock.x;
+          const dy = player.y - rock.y;
+          const dist = Math.hypot(dx, dy);
+          const dangerRadius = rock.r + player.r + 40;
+          if (dist < dangerRadius && dist > 1) {
+            const strength = (dangerRadius - dist) / dangerRadius;
+            avoidX += (dx / dist) * strength * 200;
+            avoidY += (dy / dist) * strength * 200;
+          }
         }
       }
 
@@ -220,6 +265,8 @@ export const updateBots = (world: World, now: number): void => {
 
       const healthThreshold = bot.personality === "Cowardly" ? 0.60 : 0.35;
       const isLowHealth = player.hp < player.maxHp * healthThreshold;
+
+      const prioritizedHpPickup = bot.personality === "Pro" && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500 && nearbyPickups.length > 0 && nearbyPickups[0].pickup.type === "hp";
 
       if (isAvoidingPlanet) {
         bot.targetX = player.x + avoidX;
@@ -230,6 +277,10 @@ export const updateBots = (world: World, now: number): void => {
         bot.targetX = player.x + (player.x - target.x);
         bot.targetY = player.y + (player.y - target.y);
         bot.shouldFire = false;
+      } else if (prioritizedHpPickup) {
+        const target = nearbyPickups[0].pickup;
+        bot.targetX = target.x;
+        bot.targetY = target.y;
       } else if (nearbyPlayers.length > 0 && Math.random() < bot.aggressiveness && !isLowHealth) {
         const target = nearbyPlayers[0].player;
         bot.targetX = target.x;
@@ -265,9 +316,9 @@ export const updateBots = (world: World, now: number): void => {
       bot.targetY = Math.max(50, Math.min(world.h - 50, bot.targetY));
 
       if (Math.hypot(bot.targetX - player.x, bot.targetY - player.y) < 20) {
-         // We are stuck (likely at a wall). Move towards the center!
-         bot.targetX = world.w / 2 + (Math.random() - 0.5) * 400;
-         bot.targetY = world.h / 2 + (Math.random() - 0.5) * 400;
+        // We are stuck (likely at a wall). Move towards the center!
+        bot.targetX = world.w / 2 + (Math.random() - 0.5) * 400;
+        bot.targetY = world.h / 2 + (Math.random() - 0.5) * 400;
       }
     }
 

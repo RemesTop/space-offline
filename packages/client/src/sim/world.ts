@@ -49,6 +49,7 @@ export type Player = {
   specialVariants: string[];
   lastDamageTakenAt?: number;
   lastBumperHitAt?: number;
+  bulletsFired?: number;
   // Powerup levels (1-5 for each powerup type)
   powerupLevels: {
     Hull: number;
@@ -83,6 +84,7 @@ export type Bullet = {
   ttl: number;
   pierce: boolean;
   isLaser?: boolean;
+  isRedLaser?: boolean;
 };
 
 export type Pickup = {

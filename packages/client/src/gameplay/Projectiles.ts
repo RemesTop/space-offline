@@ -20,13 +20,14 @@ export default class Projectiles {
 
   // Create sprite if missing (radius can change)
   // Add velocity parameters
-  ensure(id: string, r: number, vx: number, vy: number, isBeam?: boolean): boolean {
+  ensure(id: string, r: number, vx: number, vy: number, isBeam?: boolean, isRedLaser?: boolean): boolean {
     let data = this.byId.get(id);
     if (!data) {
       let sprite: Phaser.GameObjects.Shape;
       if (isBeam) {
-        // Longer laser beam visuals
-        sprite = this.scene.add.rectangle(0, 0, r * 10, r * 1.5, 0x00ffff).setDepth(5);
+        // Longer laser beam visuals (width stays fixed at 7.5, length scales with r)
+        const color = isRedLaser ? 0xff0000 : 0x00ffff;
+        sprite = this.scene.add.rectangle(0, 0, r * 10, 7.5, color).setDepth(5);
         sprite.setRotation(Math.atan2(vy, vx));
       } else {
         sprite = this.scene.add.circle(0, 0, r, 0xffe066).setDepth(5);
@@ -36,6 +37,8 @@ export default class Projectiles {
     } else {
       if (!data.isBeam) {
         (data.sprite as Phaser.GameObjects.Arc).setRadius(r);
+      } else {
+        (data.sprite as Phaser.GameObjects.Rectangle).setSize(r * 10, 7.5);
       }
       data.vx = vx;
       data.vy = vy;

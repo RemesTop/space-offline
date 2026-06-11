@@ -192,9 +192,9 @@ export default class Ship {
 
     this._specialVariants = specialVariants;
 
-    // Body texture based on Hull level - changes at level 2, then level 5
-    // Level 1: (texture 0), Level 2+: (texture 1), Level 5+: (texture 2)
-    const bodyTexLevel = (hullLevel || 0) < 1 ? 0 : (hullLevel || 0) < 4 ? 1 : 2;
+    // Body texture based on Hull level - changes at level 2, then level 4 (internal 3)
+    // Level 1: (texture 0), Level 2-3: (texture 1), Level 4+: (texture 2)
+    const bodyTexLevel = (hullLevel || 0) < 1 ? 0 : (hullLevel || 0) < 3 ? 1 : 2;
     this.body.setTexture(`raketti/body${bodyTexLevel}.png`);
     if (specialVariants?.includes('Bumper Body')) this.body.setTexture('raketti/bodyspecial.png');
 

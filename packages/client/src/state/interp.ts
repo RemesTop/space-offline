@@ -1,4 +1,5 @@
 import type { EntityState } from "@shared/messages";
+import { SNAPSHOT_HZ } from "@shared/constants.js";
 
 export class Interp {
   previous = new Map<string, EntityState>();
@@ -16,8 +17,20 @@ export class Interp {
   }
 
   get(id: string): EntityState | undefined {
-    const prev = this.previous.get(id);
+    let prev = this.previous.get(id);
     const curr = this.current.get(id);
+
+    // If a fast-moving entity (like a bullet) just spawned, reconstruct its previous position 
+    // based on velocity so it doesn't freeze in place while waiting for the next snapshot.
+    if (!prev && curr && curr.vx !== undefined && curr.vy !== undefined && (curr.vx !== 0 || curr.vy !== 0)) {
+      const intervalSec = 1 / SNAPSHOT_HZ;
+      prev = {
+        ...curr,
+        x: curr.x - curr.vx * intervalSec,
+        y: curr.y - curr.vy * intervalSec,
+      };
+    }
+
     if (!prev || !curr) return curr ?? prev;
     
     // Snap to current if distance is very large (e.g., teleporting)

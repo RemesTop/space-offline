@@ -646,7 +646,7 @@ export default class GameScene extends Phaser.Scene {
 
     for (const e of s.entities) {
       if (e.kind === "bullet") {
-        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy, (e as any).isLaser); // Pass velocity and isLaser here
+        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy, (e as any).isLaser, (e as any).isRedLaser); // Pass velocity, isLaser, and isRedLaser
         if (isNew && e.ownerId !== this.net.youId && !this.gameEnded) {
           const dist = Math.hypot(e.x - youX, e.y - youY);
           if (dist < 1000) {

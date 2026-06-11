@@ -406,16 +406,6 @@ const rollChoices = (p: Player): PowerupChoice[] => {
     pool.splice(randomIndex, 1);
   }
 
-  // Add AltFire option if eligible and we have space
-  if (p.level >= 10 && !p.altFire && arr.length < 4) {
-    arr.push({
-      family: "AltFire" as const,
-      alt: Math.random() < 0.5 ? "railgun" : "spread",
-      label: "Alt Fire",
-      desc: "Unlock special weapon",
-    });
-  }
-
   return arr;
 };
 
@@ -433,16 +423,22 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     angleOffset = 0,
     pierce = false,
     isLaser = false,
+    sideOffset = 0,
+    isRedLaser = false
   ) => {
     const id = nanoid();
     const vx = Math.cos(aim + angleOffset) * speed;
     const vy = Math.sin(aim + angleOffset) * speed;
-    const muzzleDist = p.r + radius - 50; // spawn at ship nose
+    const muzzleDist = p.r + radius + 10; // spawn at ship nose
+
+    const perpX = Math.cos(aim + Math.PI / 2) * sideOffset;
+    const perpY = Math.sin(aim + Math.PI / 2) * sideOffset;
+
     const b: Bullet = {
       id,
       ownerId: p.id,
-      x: p.x + Math.cos(aim + angleOffset) * muzzleDist,
-      y: p.y + Math.sin(aim + angleOffset) * muzzleDist,
+      x: p.x + Math.cos(aim + angleOffset) * muzzleDist + perpX,
+      y: p.y + Math.sin(aim + angleOffset) * muzzleDist + perpY,
       vx,
       vy,
       r: radius,
@@ -450,6 +446,7 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
       ttl,
       pierce,
       isLaser,
+      isRedLaser,
     };
     world.bullets.set(id, b);
   };
@@ -485,19 +482,28 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     return;
   }
 
-  const hasLaser = p.specialVariants.includes("Laser Beam");
   const hasTwin = p.specialVariants.includes("Twin Weapon");
+  const hasLaser = p.specialVariants.includes("Laser Beam");
   const hasHell = p.specialVariants.includes("Bullet hell");
 
+  const cannonOffset = 14;
+  const damageLvl = p.powerupLevels.Damage || 0;
+  const scaledRadius = BULLET.radius + damageLvl * 1.5;
+  const isRedLaser = hasLaser && damageLvl === 4;
+
   if (hasTwin) {
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0.1, hasLaser, hasLaser);
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, -0.1, hasLaser, hasLaser);
+    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0.05, hasLaser, hasLaser, cannonOffset, isRedLaser);
+    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, -0.05, hasLaser, hasLaser, -cannonOffset, isRedLaser);
+  } else if (p.powerupLevels.FireRate >= 1) {
+    p.bulletsFired = (p.bulletsFired || 0) + 1;
+    const side = (p.bulletsFired % 2 === 0) ? cannonOffset : -cannonOffset;
+    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, side, isRedLaser);
   } else {
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, hasLaser, hasLaser);
+    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, 0, isRedLaser);
   }
 
   if (hasHell) {
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, Math.PI, hasLaser, hasLaser);
+    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, Math.PI, hasLaser, hasLaser, 0, isRedLaser);
   }
 
   p.lastFireAt = now;
