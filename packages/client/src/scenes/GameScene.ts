@@ -190,6 +190,9 @@ export default class GameScene extends Phaser.Scene {
     this.pickCurr = new Map();
     this.pickAlpha = 1;
 
+    // Reset game state flags on restart
+    this.gameEnded = false;
+
     // Reset interpolation and reconciliation state to clear stale values
     this.interp = new Interp();
     this.recon = new Recon();

@@ -43,11 +43,11 @@ export const applyGravity = (world: World, dt: number) => {
         }
       }
 
-      if (w.type === "planet" && d < w.radius + p.r + 30) { // Increased collision radius by 30
+      if (w.type === "planet" && d < w.radius + p.r) { 
         // hard collision bounce
         const nx = dx / d,
           ny = dy / d;
-        const overlap = (w.radius + p.r + 30) - d;
+        const overlap = (w.radius + p.r) - d;
         
         // smooth push out
         p.x -= nx * overlap;
