@@ -309,11 +309,6 @@ body,
     display: inline-flex !important;
   }
 
-  html, body, #game {
-    /* Respect safe areas (iOS notch etc) */
-    padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
-  }
-
   .hud {
     top: calc(env(safe-area-inset-top, 0) + 4px);
     right: calc(env(safe-area-inset-right, 0) + 4px);

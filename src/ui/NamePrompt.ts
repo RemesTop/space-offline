@@ -36,10 +36,12 @@ export class NamePrompt {
           <span class="char-counter"><span class="count">0</span>/${this.maxLen}</span>
         </label>
         <div class="error-msg" aria-live="polite" style="display:none"></div>
-        <div class="name-actions">
-          <button type="button" id="fsBtn" class="btn secondary mobile-only" title="Fullscreen" aria-label="Fullscreen" style="display:none; flex: 0.5;">⛶</button>
-          <button type="button" id="rand" class="btn secondary" title="Random name" aria-label="Generate random name">🎲 Random</button>
-          <button type="submit" id="go" class="btn primary" disabled>Play ▶</button>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="name-actions">
+            <button type="button" id="rand" class="btn secondary" title="Random name" aria-label="Generate random name">🎲 Random</button>
+            <button type="submit" id="go" class="btn primary" disabled>Play ▶</button>
+          </div>
+          <button type="button" id="fsBtn" class="btn secondary mobile-only" title="Fullscreen" aria-label="Fullscreen" style="display:none; width: 100%;">⛶ Fullscreen</button>
         </div>
       </form>
       <div class="start-hint">
