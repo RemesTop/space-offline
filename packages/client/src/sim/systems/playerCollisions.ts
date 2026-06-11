@@ -72,7 +72,7 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
             victim.lastBumperHitAt = now;
             victim.lastDamageTakenAt = now;
             if (prevHp > 0 && victim.hp <= 0) {
-              victim.deadUntil = now + (victim.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
+              victim.deadUntil = now + (victim.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 45000);
               for (const p of world.players.values()) {
                 if (p.socketId) {
                   world.io?.emitEvent(p.socketId, {

@@ -160,6 +160,7 @@ export const ioSnapshot = (io: LocalEmitter, world: World) => {
       ownerId: b.ownerId,
       pierce: b.pierce,
       isLaser: b.isLaser,
+      isRedLaser: b.isRedLaser,
     });
   }
 

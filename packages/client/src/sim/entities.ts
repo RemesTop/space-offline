@@ -217,6 +217,9 @@ export const applyLevelChoice = (
   if (choice.family === "Special" && choice.special) {
     if (!p.specialVariants.includes(choice.special)) {
       p.specialVariants.push(choice.special);
+      if (choice.special === "Bumper Body" && !p.socketId) {
+        p.accel += 80;
+      }
     }
   } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
     p.altFire = choice.alt;
@@ -236,7 +239,12 @@ export const applyLevelChoice = (
   } else if (choice.family === "Damage" && choice.tier) {
     if (p.powerupLevels.Damage < 4) {
       p.powerupLevels.Damage++;
-      p.damage += 4;
+      if (p.powerupLevels.Damage > 1) {
+        // Diminishing returns starting a level earlier (lvl 2+ gets +2 instead of +4)
+        p.damage += 2;
+      } else {
+        p.damage += 4;
+      }
     }
   } else if (choice.family === "Engine" && choice.tier) {
     if (p.powerupLevels.Engine < 4) {
@@ -253,8 +261,8 @@ export const applyLevelChoice = (
   } else if (choice.family === "FireRate" && choice.tier) {
     if (p.powerupLevels.FireRate < 4) {
       p.powerupLevels.FireRate++;
-      if (p.powerupLevels.FireRate > 2) {
-        // Diminishing returns after lvl 3
+      if (p.powerupLevels.FireRate > 0) {
+        // Diminishing returns starting a level earlier (lvl 2+ gets -15 instead of -30)
         p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 15);
       } else {
         p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 30);
@@ -489,11 +497,11 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
   const cannonOffset = 14;
   const damageLvl = p.powerupLevels.Damage || 0;
   const scaledRadius = BULLET.radius + damageLvl * 1.5;
-  const isRedLaser = hasLaser && damageLvl === 4;
+  const isRedLaser = hasLaser && damageLvl >= 3;
 
   if (hasTwin) {
-    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0.05, hasLaser, hasLaser, cannonOffset, isRedLaser);
-    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, -0.05, hasLaser, hasLaser, -cannonOffset, isRedLaser);
+    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, 0.15, hasLaser, hasLaser, cannonOffset, isRedLaser);
+    fireBullet(BULLET.speed, p.damage, scaledRadius, BULLET.lifetimeMs, -0.15, hasLaser, hasLaser, -cannonOffset, isRedLaser);
   } else if (p.powerupLevels.FireRate >= 1) {
     p.bulletsFired = (p.bulletsFired || 0) + 1;
     const side = (p.bulletsFired % 2 === 0) ? cannonOffset : -cannonOffset;

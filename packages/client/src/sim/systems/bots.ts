@@ -58,7 +58,8 @@ const BOT_NAMES = [
   "Tekoälytön",
   "Sekoälyllinen",
   "I play this allday",
-  "GLaDOS"
+  "GLaDOS",
+  "You fix!"
 ];
 
 export const getRandomBotName = () => BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];

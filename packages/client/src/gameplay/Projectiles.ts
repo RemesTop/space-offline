@@ -26,8 +26,8 @@ export default class Projectiles {
       let sprite: Phaser.GameObjects.Shape;
       if (isBeam) {
         // Longer laser beam visuals (width stays fixed at 7.5, length scales with r)
-        const color = isRedLaser ? 0xff0000 : 0x00ffff;
-        sprite = this.scene.add.rectangle(0, 0, r * 10, 7.5, color).setDepth(5);
+        const color = isRedLaser ? 0xff6666 : 0x88ffff; // Lighter, Star Wars-like colors
+        sprite = this.scene.add.rectangle(0, 0, r * 5, 7.5, color).setDepth(5);
         sprite.setRotation(Math.atan2(vy, vx));
       } else {
         sprite = this.scene.add.circle(0, 0, r, 0xffe066).setDepth(5);
@@ -38,7 +38,7 @@ export default class Projectiles {
       if (!data.isBeam) {
         (data.sprite as Phaser.GameObjects.Arc).setRadius(r);
       } else {
-        (data.sprite as Phaser.GameObjects.Rectangle).setSize(r * 10, 7.5);
+        (data.sprite as Phaser.GameObjects.Rectangle).setSize(r * 5, 7.5);
       }
       data.vx = vx;
       data.vy = vy;

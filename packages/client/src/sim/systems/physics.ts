@@ -75,13 +75,18 @@ export const applyGravity = (world: World, dt: number) => {
         // hard collision bounce
         const nx = dx / d,
           ny = dy / d;
+        const overlap = (w.radius + p.r + 30) - d;
+        
+        // smooth push out
+        p.x -= nx * overlap;
+        p.y -= ny * overlap;
+
         const vDotN = p.vx * nx + p.vy * ny;
-        if (vDotN > 0) continue;
-        p.vx -= 1.8 * vDotN * nx;
-        p.vy -= 1.8 * vDotN * ny;
-        // clip outside (using the larger collision radius)
-        p.x = w.x - nx * (w.radius + p.r + 30 + 1);
-        p.y = w.y - ny * (w.radius + p.r + 30 + 1);
+        // only bounce if moving towards the planet
+        if (vDotN > 0) {
+          p.vx -= 1.8 * vDotN * nx;
+          p.vy -= 1.8 * vDotN * ny;
+        }
       }
     }
   }
@@ -225,7 +230,7 @@ export const bulletHits = (world: World, dt: number, now: number) => {
         p.lastDamageTakenAt = now;
         if (!b.pierce) toRemove.push(b.id);
         if (prevHp > 0 && p.hp <= 0) {
-          p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
+          p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 45000);
           // Emit kill event for explosion effect to everyone
           for (const player of world.players.values()) {
             if (player.socketId) {
