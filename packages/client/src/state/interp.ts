@@ -19,11 +19,19 @@ export class Interp {
     const prev = this.previous.get(id);
     const curr = this.current.get(id);
     if (!prev || !curr) return curr ?? prev;
+    
+    // Snap to current if distance is very large (e.g., teleporting)
+    const dx = curr.x - prev.x;
+    const dy = curr.y - prev.y;
+    if (dx * dx + dy * dy > 400 * 400) {
+      return curr;
+    }
+
     const a = this.alpha;
     const res: any = {
       ...curr,
-      x: prev.x + (curr.x - prev.x) * a,
-      y: prev.y + (curr.y - prev.y) * a,
+      x: prev.x + dx * a,
+      y: prev.y + dy * a,
     };
     if ((prev as any).aim !== undefined && (curr as any).aim !== undefined) {
       let diff = (curr as any).aim - (prev as any).aim;

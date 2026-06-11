@@ -10,7 +10,7 @@ export interface GameOverStats {
 export class GameOverModal {
   root: HTMLDivElement;
   private statsEl!: HTMLDivElement;
-  private resolveFn: (() => void) | null = null;
+  private resolveFn: ((respawn: boolean) => void) | null = null;
 
   constructor() {
     const overlay = document.createElement('div');
@@ -22,6 +22,7 @@ export class GameOverModal {
       <div class="go-sub">Your run has ended.</div>
       <div class="go-stats"></div>
       <div class="go-actions">
+        <button class="btn go-menu">Main Menu</button>
         <button class="btn primary go-respawn">Respawn ▶</button>
       </div>
       <div class="go-hint">Tip: Upgrades stack – survive longer to snowball harder.</div>
@@ -33,16 +34,19 @@ export class GameOverModal {
     this.hide();
 
     const respawnBtn = modal.querySelector('.go-respawn') as HTMLButtonElement;
-    respawnBtn.onclick = () => this.finish();
+    respawnBtn.onclick = () => this.finish(true);
+    
+    const menuBtn = modal.querySelector('.go-menu') as HTMLButtonElement;
+    menuBtn.onclick = () => this.finish(false);
   }
 
-  private finish() {
+  private finish(respawn: boolean) {
     if (!this.resolveFn) return;
     const r = this.resolveFn;
     this.resolveFn = null;
     this.hide();
     document.body.classList.remove('game-over');
-    r();
+    r(respawn);
   }
 
   show(stats: GameOverStats) {
@@ -66,7 +70,7 @@ export class GameOverModal {
     this.root.style.display = 'flex';
   }
 
-  async waitRespawn(): Promise<void> {
+  async waitRespawn(): Promise<boolean> {
     return new Promise(res => { this.resolveFn = res; });
   }
 

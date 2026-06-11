@@ -122,6 +122,11 @@ export const ServerEventSchema = z.discriminatedUnion("type", [
     y: z.number(),
   }),
   z.object({
+    type: z.literal("BumperHit"),
+    x: z.number(),
+    y: z.number(),
+  }),
+  z.object({
     type: z.literal("Pickup"),
     playerId: z.string(),
     pickupId: z.string(),

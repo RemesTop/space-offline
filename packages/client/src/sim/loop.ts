@@ -116,7 +116,7 @@ export const ioSnapshot = (io: LocalEmitter, world: World) => {
   // Build shared lists once per snapshot
   reusablePlayerList.length = 0;
   for (const op of world.players.values()) {
-    if (op.hp <= 0) continue; // only alive
+    if (op.hp <= 0 || (op.deadUntil && performance.now() < op.deadUntil)) continue; // only alive
     reusablePlayerList.push({
       id: op.id,
       kind: "player",
@@ -143,6 +143,8 @@ export const ioSnapshot = (io: LocalEmitter, world: World) => {
       socketId: op.socketId,
       aim: op.aim,
       level: op.level,
+      specialVariant: op.specialVariant,
+      altFire: op.altFire,
     });
   }
   reusableBulletList.length = 0;
@@ -156,6 +158,7 @@ export const ioSnapshot = (io: LocalEmitter, world: World) => {
       vy: b.vy,
       r: b.r,
       ownerId: b.ownerId,
+      pierce: b.pierce,
     });
   }
 

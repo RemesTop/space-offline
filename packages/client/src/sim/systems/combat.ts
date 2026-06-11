@@ -10,7 +10,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
     // Safety: if deadUntil not set (some death path missed), set & spawn drops now
     if (!p.deadUntil) {
       spawnDeathPickups(world, p);
-      p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+      p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
     }
     if (now >= p.deadUntil) {
       const pos = randEdgeSpawn(world);
@@ -21,7 +21,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
       
       // If it's a bot, reset all stats completely
       if (!p.socketId) {
-        p.maxHp = PLAYER.baseHP + (p.isGiant ? 50 : 0);
+        p.maxHp = PLAYER.baseHP + (p.isGiant ? 200 : 0);
         p.accel = PLAYER.baseAccel;
         p.maxSpeed = PLAYER.baseMaxSpeed;
         p.damage = BULLET.baseDamage;
@@ -31,18 +31,10 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
         p.xp = 0;
         p.level = 1;
         p.xpToNext = xpForLevel(2);
-        p.powerupLevels = { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Radar: 0 };
+        p.powerupLevels = { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Wings: 0 };
         p.specialVariant = undefined;
         p.altFire = undefined;
-        
-        // Re-roll 0-2 initial upgrades like when first spawned
-        const families: any[] = ["Hull", "Damage", "Engine", "FireRate", "Radar"];
-        const numUpgrades = Math.random() < 0.2 ? Math.floor(Math.random() * 2) + 1 : 0;
-        for (let i = 0; i < numUpgrades; i++) {
-          p.pendingOffer = true;
-          const randomFamily = families[Math.floor(Math.random() * families.length)];
-          applyLevelChoice(world, p.id, { family: randomFamily, tier: 1 });
-        }
+        p.score = 0;
       }
 
       // Base respawn stats

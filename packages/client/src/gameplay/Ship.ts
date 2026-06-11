@@ -22,6 +22,7 @@ export default class Ship {
   private _lastRot = 0;
   private _scale: number;
   private _originalTint = 0xffffff;
+  private _specialVariant?: string;
 
   // Added properties for name tag and death pinning
   worldX?: number;
@@ -134,7 +135,12 @@ export default class Ship {
     this.window.setTint(color);
     this.point.setTint(color);
     this.weapon.setTint(color);
-    this.thruster.setTint(color);
+    
+    if (this._specialVariant === 'Zero gravity' && color === this._originalTint) {
+      this.thruster.setTint(0x00ffff);
+    } else {
+      this.thruster.setTint(color);
+    }
   }
 
   playHitEffect() {
@@ -177,17 +183,19 @@ export default class Ship {
     magnetRadius: number;
     fireCooldownMs: number;
     engineLevel?: number;
-    radarLevel?: number;
+    wingsLevel?: number;
     hullLevel?: number;
     isGiant?: boolean;
     specialVariant?: any;
   }) {
-    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, radarLevel, isGiant, specialVariant } = stats;
+    const { maxHp, damage, maxSpeed, accel, magnetRadius, fireCooldownMs, hullLevel, engineLevel, wingsLevel, isGiant, specialVariant } = stats;
 
-    // Body texture based on HP - changes at level 2 (120HP), then level 5 (180HP)
-    // Level 1: 100HP (texture 0), Level 2+: 120HP+ (texture 1), Level 5+: 180HP+ (texture 2)
-    const bodyLevel = maxHp <= 100 ? 0 : maxHp < 180 ? 1 : 2;
-    this.body.setTexture(`raketti/body${bodyLevel}.png`);
+    this._specialVariant = specialVariant;
+
+    // Body texture based on Hull level - changes at level 2, then level 5
+    // Level 1: (texture 0), Level 2+: (texture 1), Level 5+: (texture 2)
+    const bodyTexLevel = (hullLevel || 0) < 1 ? 0 : (hullLevel || 0) < 4 ? 1 : 2;
+    this.body.setTexture(`raketti/body${bodyTexLevel}.png`);
     if (specialVariant === 'Bumper Body') this.body.setTexture('raketti/bodyspecial.png');
 
     // Weapon texture based on fire cooldown - changes at level 2, then level 5
@@ -200,33 +208,38 @@ export default class Ship {
     // Level 1: 12 damage (texture 0), Level 2+: 16+ damage (texture 1), Level 5+: 24+ damage (texture 2)
     const pointLevel = damage <= 12 ? 0 : damage < 24 ? 1 : 2;
     this.point.setTexture(`raketti/point${pointLevel}.png`);
-    if (specialVariant === 'Gravity Point') this.point.setTexture('raketti/pointspecial.png');
 
-    // Wings texture based on acceleration - changes at level 2, then level 5
-    // Level 1: 850 accel (texture 0), Level 2+: 930+ accel (texture 1), Level 5+: 1000+ accel (texture 2)
-    const wingsLevel = accel <= 850 ? 0 : accel < 1000 ? 1 : 2;
-    this.wings.setTexture(`raketti/wings${wingsLevel}.png`);
+    // Wings texture based on wings level - changes at level 2, then level 5
+    // Level 1: (texture 0), Level 2+: (texture 1), Level 5+: (texture 2)
+    const wingsTexLevel = (wingsLevel || 0) < 1 ? 0 : (wingsLevel || 0) < 4 ? 1 : 2;
+    this.wings.setTexture(`raketti/wings${wingsTexLevel}.png`);
     if (specialVariant === 'Regen Wings') this.wings.setTexture('raketti/wingsspecial.png');
 
     // Window texture based on magnet radius - changes at level 2, then level 5
     // Level 1: 100 radius (texture 0), Level 2+: 130+ radius (texture 1), Level 5+: 190+ radius (texture 2)
     const windowLevel = magnetRadius <= 100 ? 0 : magnetRadius < 190 ? 1 : 2;
     this.window.setTexture(`raketti/window${windowLevel}.png`);
-    if (specialVariant === 'Laser Window') this.window.setTexture('raketti/windowspecial.png');
-    if (specialVariant === 'Omni Window') this.window.setTexture('raketti/windowspecial-aim.png');
+    if (specialVariant === 'Laser Beam') this.window.setTexture('raketti/windowspecial.png');
+    
+    if (specialVariant === 'Bullet hell') this.point.setTexture('raketti/pointspecial.png');
+
+    // Update tint for thruster in case special variant changed
+    this._applyTint(this._originalTint);
 
     // Scale ship based on hull level and giant status
     if (hullLevel !== undefined) {
       const giantMultiplier = isGiant ? 1.3 : 1.0;
       const safeEngine = engineLevel || 0;
-      const safeRadar = radarLevel || 0;
-      const newScale = this._scale * giantMultiplier * (1 + 0.15 * hullLevel + 0.05 * safeEngine + 0.03 * safeRadar);
+      const safeWings = wingsLevel || 0;
+      const newScale = this._scale * giantMultiplier * (1 + 0.15 * hullLevel + 0.05 * safeEngine + 0.03 * safeWings);
       this.body.setScale(newScale);
       this.wings.setScale(newScale);
       this.window.setScale(newScale);
       this.point.setScale(newScale);
       this.weapon.setScale(newScale);
-      this.thruster.setScale(newScale);
+      
+      // Thruster scales more aggressively with Engine upgrade
+      this.thruster.setScale(newScale * (1 + safeEngine * 0.2));
 
       // Update nose relative position based on new scale
       this._noseR = this.body.width * newScale * 0.48;

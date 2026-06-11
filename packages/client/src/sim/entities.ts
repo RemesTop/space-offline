@@ -35,8 +35,8 @@ export const addPlayer = (
     vy: 0,
     r: PLAYER.radius,
     isGiant,
-    hp: PLAYER.baseHP + (isGiant ? 50 : 0),
-    maxHp: PLAYER.baseHP + (isGiant ? 50 : 0),
+    hp: PLAYER.baseHP + (isGiant ? 200 : 0),
+    maxHp: PLAYER.baseHP + (isGiant ? 200 : 0),
     accel: PLAYER.baseAccel,
     maxSpeed: PLAYER.baseMaxSpeed,
     damage: BULLET.baseDamage,
@@ -61,7 +61,7 @@ export const addPlayer = (
       Engine: 0,
       FireRate: 0,
       Magnet: 0,
-      Radar: 0,
+      Wings: 0,
     },
     lastDamageTakenAt: 0,
   };
@@ -139,8 +139,8 @@ export const updatePlayerRadius = (p: Player) => {
   const giantMultiplier = p.isGiant ? 1.3 : 1.0;
   const hullLevel = p.powerupLevels.Hull || 0;
   const engineLevel = p.powerupLevels.Engine || 0;
-  const radarLevel = p.powerupLevels.Radar || 0;
-  p.r = PLAYER.radius * giantMultiplier * (1 + 0.15 * hullLevel + 0.05 * engineLevel + 0.03 * radarLevel);
+  const wingsLevel = p.powerupLevels.Wings || 0;
+  p.r = PLAYER.radius * giantMultiplier * (1 + 0.15 * hullLevel + 0.05 * engineLevel + 0.03 * wingsLevel);
 };
 export const levelUp = (world: World, playerId: string) => {
   const player = world.players.get(playerId);
@@ -218,8 +218,8 @@ export const applyLevelChoice = (
   } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
     p.altFire = choice.alt;
   } else if (choice.family === "Hull" && choice.tier) {
-    // Check if Hull is already at max level (5)
-    if (p.powerupLevels.Hull < 5) {
+    // Check if Hull is already at max level (4)
+    if (p.powerupLevels.Hull < 4) {
       p.powerupLevels.Hull++;
       // Bot HP upgrade should be significantly reduced for the later levels (hull 3 and after only +20)
       if (!p.socketId && p.powerupLevels.Hull >= 3) {
@@ -231,30 +231,41 @@ export const applyLevelChoice = (
       }
     }
   } else if (choice.family === "Damage" && choice.tier) {
-    if (p.powerupLevels.Damage < 5) {
+    if (p.powerupLevels.Damage < 4) {
       p.powerupLevels.Damage++;
       p.damage += 4;
     }
   } else if (choice.family === "Engine" && choice.tier) {
-    if (p.powerupLevels.Engine < 5) {
+    if (p.powerupLevels.Engine < 4) {
       p.powerupLevels.Engine++;
-      p.maxSpeed += 40;
-      p.accel += 80;
+      if (p.powerupLevels.Engine > 2) {
+        // Diminishing returns after lvl 3 (internal level > 2)
+        p.maxSpeed += 20;
+        p.accel += 40;
+      } else {
+        p.maxSpeed += 40;
+        p.accel += 80;
+      }
     }
   } else if (choice.family === "FireRate" && choice.tier) {
-    if (p.powerupLevels.FireRate < 5) {
+    if (p.powerupLevels.FireRate < 4) {
       p.powerupLevels.FireRate++;
-      p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 30);
+      if (p.powerupLevels.FireRate > 2) {
+        // Diminishing returns after lvl 3
+        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 15);
+      } else {
+        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 30);
+      }
     }
   } else if (choice.family === "Magnet" && choice.tier) {
-    if (p.powerupLevels.Magnet < 5) {
+    if (p.powerupLevels.Magnet < 4) {
       p.powerupLevels.Magnet++;
       p.magnetRadius += 40;
     }
-  } else if (choice.family === "Radar" && choice.tier) {
-    if (p.powerupLevels.Radar < 5) {
-      p.powerupLevels.Radar++;
-      // Radar now increases turn speed (handled in bots.ts and GameScene.ts) and zoom
+  } else if (choice.family === "Wings" && choice.tier) {
+    if (p.powerupLevels.Wings < 4) {
+      p.powerupLevels.Wings++;
+      // Wings now increases turn speed (handled in bots.ts and GameScene.ts) and zoom
     }
   }
 
@@ -280,7 +291,9 @@ export const applyLevelChoice = (
       fireCooldownMs: p.fireCooldownMs,
       magnetRadius: p.magnetRadius,
       shield: p.shield,
-      radarLevel: p.powerupLevels.Radar,
+      engineLevel: p.powerupLevels.Engine,
+      wingsLevel: p.powerupLevels.Wings,
+      hullLevel: p.powerupLevels.Hull,
       altFire: p.altFire,
       specialVariant: p.specialVariant,
       powerupLevels: p.powerupLevels,
@@ -289,14 +302,14 @@ export const applyLevelChoice = (
 };
 
 const rollChoices = (p: Player): PowerupChoice[] => {
-  if (p.level >= 6 && !p.specialVariant) {
+  if (p.level >= 5 && !p.specialVariant) {
     return [
-      { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "Slight regeneration (pauses after damage)" },
-      { family: "Special", special: "Gravity Point", label: "Gravity Point", desc: "No damage/collision from planets/gravity" },
+      { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "+15 HP per kill" },
+      { family: "Special", special: "Zero gravity", label: "Zero gravity", desc: "No damage/collision from planets/gravity" },
       { family: "Special", special: "Bumper Body", label: "Bumper Body", desc: "Damage and push other ships away heavily" },
-      { family: "Special", special: "Twin Weapon", label: "Twin Weapon", desc: "Shoot two bullets instead of one" },
-      { family: "Special", special: "Laser Window", label: "Laser Window", desc: "Shoot a piercing laser that goes through rocks" },
-      { family: "Special", special: "Omni Window", label: "Omni Window", desc: "Shoot bullets forward and backward" },
+      { family: "Special", special: "Twin Weapon", label: "Twin Weapon", desc: "Shoot two bullets side-by-side" },
+      { family: "Special", special: "Laser Beam", label: "Laser Beam", desc: "Shoot piercing beams" },
+      { family: "Special", special: "Bullet hell", label: "Bullet hell", desc: "Shoot bullets forward and backward" },
     ];
   }
 
@@ -305,64 +318,64 @@ const rollChoices = (p: Player): PowerupChoice[] => {
   // Create pool of available powerups that aren't at max level
   const pool: PowerupChoice[] = [];
 
-  // Only add powerups that aren't at max level (5)
-  if (p.powerupLevels.Hull < 5) {
+  // Only add powerups that aren't at max level (4)
+  if (p.powerupLevels.Hull < 4) {
     const nextLevel = p.powerupLevels.Hull + 1;
     pool.push({
       family: "Hull" as const,
       tier: nextLevel,
-      label: `Hull Lv${nextLevel}`,
+      label: `Hull Lv${nextLevel + 1}`,
       desc: "+40 Max HP",
     });
   }
 
-  if (p.powerupLevels.Damage < 5) {
+  if (p.powerupLevels.Damage < 4) {
     const nextLevel = p.powerupLevels.Damage + 1;
     pool.push({
       family: "Damage" as const,
       tier: nextLevel,
-      label: `Damage Lv${nextLevel}`,
+      label: `Damage Lv${nextLevel + 1}`,
       desc: "+4 Damage",
     });
   }
 
-  if (p.powerupLevels.Engine < 5) {
+  if (p.powerupLevels.Engine < 4) {
     const nextLevel = p.powerupLevels.Engine + 1;
     pool.push({
       family: "Engine" as const,
       tier: nextLevel,
-      label: `Engine Lv${nextLevel}`,
-      desc: "+Speed/Accel",
+      label: `Engine Lv${nextLevel + 1}`,
+      desc: nextLevel > 2 ? "+Speed/Accel (Diminished)" : "+Speed/Accel",
     });
   }
 
-  if (p.powerupLevels.FireRate < 5) {
+  if (p.powerupLevels.FireRate < 4) {
     const nextLevel = p.powerupLevels.FireRate + 1;
     pool.push({
       family: "FireRate" as const,
       tier: nextLevel,
-      label: `Fire Rate Lv${nextLevel}`,
-      desc: "-25ms Cooldown",
+      label: `Fire Rate Lv${nextLevel + 1}`,
+      desc: nextLevel > 2 ? "-15ms Cooldown" : "-30ms Cooldown",
     });
   }
 
-  if (p.powerupLevels.Magnet < 5) {
+  if (p.powerupLevels.Magnet < 4) {
     const nextLevel = p.powerupLevels.Magnet + 1;
     pool.push({
       family: "Magnet" as const,
       tier: nextLevel,
-      label: `Magnet Lv${nextLevel}`,
+      label: `Magnet Lv${nextLevel + 1}`,
       desc: "+30 Pickup Radius",
     });
   }
 
-  if (p.powerupLevels.Radar < 5) {
-    const nextLevel = p.powerupLevels.Radar + 1;
+  if (p.powerupLevels.Wings < 4) {
+    const nextLevel = p.powerupLevels.Wings + 1;
     pool.push({
-      family: "Radar" as const,
+      family: "Wings" as const,
       tier: nextLevel,
-      label: `Radar Lv${nextLevel}`,
-      desc: "+10 Shield & Zoom Out",
+      label: `Wings Lv${nextLevel + 1}`,
+      desc: "Faster turning + Zoom out",
     });
   }
 
@@ -407,7 +420,7 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     angleOffset = 0,
     pierce = false,
   ) => {
-    const offsets = p.isGiant ? [angleOffset - 0.1, angleOffset + 0.1] : [angleOffset];
+    const offsets = [angleOffset];
     for (const off of offsets) {
       const id = nanoid();
       const vx = Math.cos(aim + off) * speed;
@@ -459,7 +472,7 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     return;
   }
 
-  if (p.specialVariant === "Laser Window") {
+  if (p.specialVariant === "Laser Beam") {
     fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, true);
     p.lastFireAt = now;
     return;
@@ -470,9 +483,11 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     p.lastFireAt = now;
     return;
   }
-  if (p.specialVariant === "Omni Window") {
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0, false);
-    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, Math.PI, false);
+  if (p.specialVariant === "Bullet hell") {
+    // Forward bullet
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, 0);
+    // Backward bullet
+    fireBullet(BULLET.speed, p.damage, BULLET.radius, BULLET.lifetimeMs, Math.PI);
     p.lastFireAt = now;
     return;
   }
@@ -536,7 +551,7 @@ export const spawnPickupsIfNeeded = (world: World) => {
       type === "hp"
         ? PICKUPS.hpOrbValue
         : type === "xp-giant"
-        ? Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1])) * 2
+        ? Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1])) * 3
         : Math.floor(rndRange(PICKUPS.xpValueRange[0], PICKUPS.xpValueRange[1]));
     const p: Pickup = {
       id,

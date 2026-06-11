@@ -46,7 +46,7 @@ export default class Pickups {
           let glow = 0xfff7b2; // soft outer glow
           if (type === "xp-giant") {
             color = 0xffeccc; // slightly warmer core
-            glow = 0xff7744; // soft orange-red outer glow
+            glow = 0xff9944; // softer orange outer glow, less red
           }
 
           // Draw glow

@@ -8,10 +8,10 @@ let rockSpawnAccumulator = 3000;
 
 export const spawnRocks = (world: World, dtMs: number) => {
   rockSpawnAccumulator += dtMs;
-  // Spawn a rock every 1.5 seconds, up to 40 rocks max
+  // Spawn a rock every 1.5 seconds, up to 20 rocks max
   if (rockSpawnAccumulator > 1500) {
     rockSpawnAccumulator -= 1500;
-    if (world.rocks.size < 40) {
+    if (world.rocks.size < 20) {
       const id = nanoid();
       const r = rndRange(35, 75);
       
@@ -64,38 +64,59 @@ export const handleRockCollisions = (world: World, now: number) => {
         r.x -= nx * overlap * 0.5;
         r.y -= ny * overlap * 0.5;
         
-        // Bounce player
-        const vDotN = p.vx * nx + p.vy * ny;
-        if (vDotN < 0) {
-           p.vx -= 1.5 * vDotN * nx;
-           p.vy -= 1.5 * vDotN * ny;
-        }
-        
-        // Bounce rock
-        const rvDotN = r.vx * nx + r.vy * ny;
-        if (rvDotN > 0) {
-           r.vx -= 1.0 * rvDotN * nx;
-           r.vy -= 1.0 * rvDotN * ny;
-        }
-        
-        // Damage
-        if (now >= p.invulnUntil) {
-          const prevHp = p.hp;
-          p.hp -= 20;
-          if (prevHp > 0 && p.hp <= 0) {
-            p.deadUntil = now + PLAYER.respawnDelayMs;
-            if (p.socketId) {
-              world.io?.emitEvent(p.socketId, {
-                type: "Kill",
-                killerId: null,
-                victimId: p.id,
-                victimScore: p.score,
-                victimLevel: p.level,
-                x: p.x,
-                y: p.y,
-              });
+        // Bumper body logic
+        if (p.specialVariant === 'Bumper Body') {
+          // Bumper body pushes rock away strongly
+          r.x -= nx * 60;
+          r.y -= ny * 60;
+          
+          const rvDotN = r.vx * nx + r.vy * ny;
+          if (rvDotN > 0) {
+             r.vx -= 2.5 * rvDotN * nx;
+             r.vy -= 2.5 * rvDotN * ny;
+          } else {
+             r.vx -= nx * 600;
+             r.vy -= ny * 600;
+          }
+
+          // Emit BumperHit event
+          if (p.socketId) {
+            world.io?.emitEvent(p.socketId, { type: "BumperHit" as const, x: p.x - nx * r.r, y: p.y - ny * r.r });
+          }
+        } else {
+          // Normal Bounce player
+          const vDotN = p.vx * nx + p.vy * ny;
+          if (vDotN < 0) {
+             p.vx -= 1.5 * vDotN * nx;
+             p.vy -= 1.5 * vDotN * ny;
+          }
+          
+          // Normal Bounce rock
+          const rvDotN = r.vx * nx + r.vy * ny;
+          if (rvDotN > 0) {
+             r.vx -= 1.0 * rvDotN * nx;
+             r.vy -= 1.0 * rvDotN * ny;
+          }
+          
+          // Damage
+          if (now >= p.invulnUntil) {
+            const prevHp = p.hp;
+            p.hp -= 20;
+            if (prevHp > 0 && p.hp <= 0) {
+              p.deadUntil = now + PLAYER.respawnDelayMs;
+              if (p.socketId) {
+                world.io?.emitEvent(p.socketId, {
+                  type: "Kill",
+                  killerId: null,
+                  victimId: p.id,
+                  victimScore: p.score,
+                  victimLevel: p.level,
+                  x: p.x,
+                  y: p.y,
+                });
+              }
+              spawnDeathPickups(world, p);
             }
-            spawnDeathPickups(world, p);
           }
         }
       }
@@ -105,6 +126,7 @@ export const handleRockCollisions = (world: World, now: number) => {
   // Bullet collisions (bullets disappear on hit)
   const bulletsToRemove: string[] = [];
   for (const b of world.bullets.values()) {
+    if (b.pierce) continue; // Piercing bullets fly right through rocks!
     for (const r of world.rocks.values()) {
       const dx = b.x - r.x;
       const dy = b.y - r.y;
@@ -118,10 +140,29 @@ export const handleRockCollisions = (world: World, now: number) => {
   }
   for (const id of bulletsToRemove) world.bullets.delete(id);
 
-  // Cleanup distant rocks so they can respawn
+  // Cleanup distant rocks so they can respawn by teleporting
   for (const [id, r] of world.rocks) {
     if (r.x < -2000 || r.x > world.w + 2000 || r.y < -2000 || r.y > world.h + 2000) {
-      world.rocks.delete(id);
+      const side = Math.floor(Math.random() * 3); // 0 = bottom, 1 = left, 2 = right
+      const spawnDist = 400; // spawn outside world boundary
+      const speed = rndRange(10, 40);
+      
+      if (side === 0) { // bottom
+        r.x = rndRange(0, world.w);
+        r.y = world.h + spawnDist;
+        r.vx = rndRange(-speed, speed);
+        r.vy = -speed;
+      } else if (side === 1) { // left
+        r.x = -spawnDist;
+        r.y = rndRange(0, world.h);
+        r.vx = speed;
+        r.vy = rndRange(-speed, speed);
+      } else { // right
+        r.x = world.w + spawnDist;
+        r.y = rndRange(0, world.h);
+        r.vx = -speed;
+        r.vy = rndRange(-speed, speed);
+      }
     }
   }
 };

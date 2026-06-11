@@ -36,8 +36,19 @@ const BOT_NAMES = [
   "R2-D2",
   "wALL-E",
   "The Iron Giant",
-  "Bender Bending Rodríguez"
+  "Bender Bending Rodríguez",
+  "Chatgpt 4o",
+  "Gemini 3.1 pro",
+  "Claude",
+  "Grok",
+  "Deepseek",
+  "Arch linux",
+  "Holy C",
+  "Tohtori robotnik",
+  "Dr Sykerö"
 ];
+
+export type BotPersonality = "Aggressive" | "Cowardly" | "Scavenger" | "Balanced";
 
 export type Bot = {
   playerId: string;
@@ -48,6 +59,7 @@ export type Bot = {
   aggressiveness: number; // 0-1, how likely to seek players vs pickups
   aimOffset: number; // aim error in radians
   currentAim: number; // current aim angle
+  personality: BotPersonality;
 };
 
 const bots = new Map<string, Bot>();
@@ -66,21 +78,28 @@ export const spawnBot = (world: World): void => {
   const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
   player.name = botName;
 
-  // Give bot 0 to 2 random upgrades (rarely)
-  const families: PowerupFamily[] = ["Hull", "Damage", "Engine", "FireRate", "Radar"];
-  const numUpgrades = Math.random() < 0.2 ? Math.floor(Math.random() * 2) + 1 : 0; // 20% chance for 1 or 2 upgrades
-  for (let i = 0; i < numUpgrades; i++) {
-    player.pendingOffer = true;
-    const randomFamily = families[Math.floor(Math.random() * families.length)];
-    applyLevelChoice(world, botId, { family: randomFamily, tier: 1 });
+  const personalities: BotPersonality[] = ["Aggressive", "Cowardly", "Scavenger", "Balanced"];
+  let personality = personalities[Math.floor(Math.random() * personalities.length)];
+  if (player.isGiant) {
+    personality = "Aggressive";
+  }
+
+  let aggressiveness = Math.random() * 0.8 + 0.2;
+  let aimOffset = (Math.random() - 0.5) * 0.3;
+  if (personality === "Aggressive") {
+    aggressiveness = Math.random() * 0.2 + 0.8; // 0.8 to 1.0
+    aimOffset = (Math.random() - 0.5) * 0.1; // Better aim
+  } else if (personality === "Cowardly") {
+    aggressiveness = Math.random() * 0.3; // 0.0 to 0.3
   }
 
   const bot: Bot = {
     playerId: botId,
     lastThinkAt: 0,
-    aggressiveness: Math.random() * 0.8 + 0.2, // 0.2 to 1.0
-    aimOffset: (Math.random() - 0.5) * 0.3, // -0.15 to 0.15 radians
+    aggressiveness,
+    aimOffset,
     currentAim: Math.random() * Math.PI * 2,
+    personality,
   };
 
   bots.set(botId, bot);
@@ -126,12 +145,13 @@ export const updateBots = (world: World, now: number): void => {
         .filter(({ dist }) => dist < 400)
         .sort((a, b) => a.dist - b.dist);
 
+      const pickupSearchRadius = bot.personality === "Scavenger" ? 800 : 500;
       const nearbyPickups = Array.from(world.pickups.values())
         .map(p => ({
           pickup: p,
           dist: Math.hypot(p.x - player.x, p.y - player.y)
         }))
-        .filter(({ dist }) => dist < 500)
+        .filter(({ dist }) => dist < pickupSearchRadius)
         .sort((a, b) => {
           if (player.hp < player.maxHp * 0.5) {
             if (a.pickup.type === "hp" && b.pickup.type !== "hp") return -1;
@@ -161,7 +181,8 @@ export const updateBots = (world: World, now: number): void => {
 
       const isAvoidingPlanet = Math.hypot(avoidX, avoidY) > 20;
 
-      const isLowHealth = player.hp < player.maxHp * 0.35;
+      const healthThreshold = bot.personality === "Cowardly" ? 0.60 : 0.35;
+      const isLowHealth = player.hp < player.maxHp * healthThreshold;
 
       if (isAvoidingPlanet) {
         bot.targetX = player.x + avoidX;
@@ -218,8 +239,8 @@ export const updateBots = (world: World, now: number): void => {
     while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
     while (aimDiff < -Math.PI) aimDiff += Math.PI * 2;
 
-    const radarLvl = player.powerupLevels?.Radar || 0;
-    const turnSpeed = 2.0 + (radarLvl * 0.25);
+    const wingsLvl = player.powerupLevels?.Wings || 0;
+    const turnSpeed = 2.0 + (wingsLvl * 0.25);
     // 33ms simulated dt for steering every tick
     const maxTurn = turnSpeed * (33 / 1000);
 

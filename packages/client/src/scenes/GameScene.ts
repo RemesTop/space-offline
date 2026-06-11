@@ -110,12 +110,12 @@ export default class GameScene extends Phaser.Scene {
     super("Game");
   }
 
-  // Calculate camera zoom based on radar level
+  // Calculate camera zoom based on wings level
   updateCameraZoom() {
     if (this.debugFullView) return; // Don't interfere with debug view
     const baseZoom = 1.4; // Base zoom level
-    const zoomOutPerLevel = 0.05; // How much to zoom out per radar level
-    const calculatedZoom = baseZoom - (this.radarLevel * zoomOutPerLevel);
+    const zoomOutPerLevel = 0.18; // How much to zoom out per wings level
+    const calculatedZoom = baseZoom - (this.wingsLevel * zoomOutPerLevel);
     this.cameras.main.setZoom(calculatedZoom);
   }
 
@@ -144,7 +144,6 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("raketti/bodyspecial.png", new URL("../assets/raketti/bodyspecial.png", import.meta.url).toString());
     this.load.image("raketti/wingsspecial.png", new URL("../assets/raketti/wingsspecial.png", import.meta.url).toString());
     this.load.image("raketti/windowspecial.png", new URL("../assets/raketti/windowspecial.png", import.meta.url).toString());
-    this.load.image("raketti/windowspecial-aim.png", new URL("../assets/raketti/windowspecial-aim.png", import.meta.url).toString());
     this.load.image("raketti/pointspecial.png", new URL("../assets/raketti/pointspecial.png", import.meta.url).toString());
     this.load.image("raketti/weaponspecial.png", new URL("../assets/raketti/weaponspecial.png", import.meta.url).toString());
 
@@ -170,9 +169,9 @@ export default class GameScene extends Phaser.Scene {
     // Preload rock
     this.load.image("rock", new URL("../assets/rock.png", import.meta.url).toString());
 
-    // Audio assets - swapped back according to request
-    this.load.audio("menuMusic", new URL("../assets/sounds/ambient-space-fantasy-music-for-mindful-escapism-141536.mp3", import.meta.url).toString());
-    this.load.audio("gameMusic", new URL("../assets/sounds/space-ambient-351305.mp3", import.meta.url).toString());
+    // Audio assets - swapped according to request
+    this.load.audio("menuMusic", new URL("../assets/sounds/space-ambient-351305.mp3", import.meta.url).toString());
+    this.load.audio("gameMusic", new URL("../assets/sounds/ambient-space-fantasy-music-for-mindful-escapism-141536.mp3", import.meta.url).toString());
   }
 
   async create(data?: { playerName?: string }) {
@@ -190,7 +189,7 @@ export default class GameScene extends Phaser.Scene {
     this.pickAlpha = 1;
     this.ships = new Map();
     this.dyingShips.clear();
-    this.radarLevel = 0; // Reset radar level for new game
+    this.wingsLevel = 0; // Reset wings level for new game
     this.planetSprites.forEach(s => s.destroy());
     this.planetSprites = new Map();
 
@@ -205,10 +204,15 @@ export default class GameScene extends Phaser.Scene {
 
     // ALWAYS recreate gameplay display-object based managers (their GameObjects were destroyed on scene restart)
     this.parallax = new Parallax(this);
+    this.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
+      if (this.parallax) {
+        this.parallax.resize(gameSize.width, gameSize.height);
+      }
+    });
     this.bullets = new Projectiles(this);
     this.pickups = new Pickups(this);
 
-    // Reuse HUD / modals if they already exist (they manage DOM/overlays), otherwise create once
+    // Initialize HUD
     if (!this.hud) {
       this.hud = new HUD();
       this.levelModal = new LevelUpModal();
@@ -218,6 +222,11 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Audio setup (re-create sounds each time to avoid overlap)
+    const storedVol = localStorage.getItem('globalVolume');
+    if (storedVol !== null) {
+      this.sound.volume = parseFloat(storedVol);
+    }
+
     this.menuMusic = this.sound.add('menuMusic', { loop: true, volume: 0 });
     this.gameMusic = this.sound.add('gameMusic', { loop: true, volume: 0.5 });
     (this.menuMusic as any).setVolume?.(0);
@@ -245,7 +254,7 @@ export default class GameScene extends Phaser.Scene {
     this.boundsGfx = this.add.graphics().setDepth(7);
 
     // Set default camera zoom for better visibility
-    this.updateCameraZoom(); // Use radar-based zoom calculation
+    this.updateCameraZoom(); // Use wings-based zoom calculation
 
     // Create fire animation
     if (!this.anims.exists('fire_thruster')) {
@@ -396,8 +405,12 @@ export default class GameScene extends Phaser.Scene {
             // Stop sending inputs
             this.net.socket.disconnect();
             
-            this.gameOverModal.waitRespawn().then(() => {
-              this.handleRespawn();
+            this.gameOverModal.waitRespawn().then((respawn) => {
+              if (respawn) {
+                this.handleRespawn();
+              } else {
+                window.location.reload();
+              }
             });
           }, 1500); // 1.5s delay to watch explosion
           this.fadeToMenuMusic();
@@ -420,20 +433,58 @@ export default class GameScene extends Phaser.Scene {
             magnetRadius: updated.magnetRadius,
             fireCooldownMs: updated.fireCooldownMs,
             specialVariant: updated.specialVariant,
+            engineLevel: updated.engineLevel,
+            wingsLevel: updated.wingsLevel,
+            hullLevel: updated.hullLevel,
           });
           const youId = this.net.youId;
           if (youId) {
             const you = this.interp.get(youId);
             if (you) {
               Object.assign(you, e.updated);
-              // Update radar level and camera zoom
-              if (updated.radarLevel !== undefined) {
-                this.radarLevel = updated.radarLevel;
+              // Update wings level and camera zoom
+              if (updated.wingsLevel !== undefined) {
+                this.wingsLevel = updated.wingsLevel;
                 this.updateCameraZoom();
               }
               // Immediately refresh HUD powerups panel from event data
               this.hud.setPowerups({ ...you, powerupLevels: updated.powerupLevels });
             }
+          }
+        }
+      } else if (e.type === 'BumperHit') {
+        const youI = this.interp.get(this.net.youId || "");
+        if (youI) {
+          const cx = this.scale.width / 2;
+          const cy = this.scale.height / 2;
+          const sx = cx + (e.x - youI.x);
+          const sy = cy + (e.y - youI.y);
+          
+          const container = this.add.container(sx, sy).setDepth(1000);
+          container.setData('worldX', e.x);
+          container.setData('worldY', e.y);
+          this.explosionContainers.add(container);
+          
+          const ring = this.add.circle(0, 0, 30, 0xffffff, 0.8)
+            .setStrokeStyle(3, 0x8ac6ff);
+          container.add(ring);
+          
+          this.tweens.add({
+            targets: ring,
+            radius: 90,
+            alpha: 0,
+            duration: 400,
+            ease: 'Power2',
+            onComplete: () => {
+              container.destroy();
+              this.explosionContainers.delete(container);
+            }
+          });
+          
+          const dist = Math.hypot(e.x - youI.x, e.y - youI.y);
+          if (dist < 1500) {
+            const vol = Math.max(0.01, 1 - dist / 1500) * 0.6;
+            this.playSynthSound("death", vol); // use death sound for a "thud"
           }
         }
       }
@@ -467,21 +518,23 @@ export default class GameScene extends Phaser.Scene {
     const gain = this.audioCtx.createGain();
     osc.connect(gain);
     gain.connect(this.audioCtx.destination);
+    
+    const globalVol = this.sound.volume ?? 1.0;
 
     if (type === "shoot") {
       osc.type = "square";
       osc.frequency.setValueAtTime(400, t);
       osc.frequency.exponentialRampToValueAtTime(100, t + 0.1);
-      gain.gain.setValueAtTime(0.1 * volumeScale, t);
-      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale, t + 0.1);
+      gain.gain.setValueAtTime(0.1 * volumeScale * globalVol, t);
+      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale * globalVol, t + 0.1);
       osc.start(t);
       osc.stop(t + 0.1);
     } else {
       osc.type = "sawtooth";
       osc.frequency.setValueAtTime(100, t);
       osc.frequency.exponentialRampToValueAtTime(10, t + 0.5);
-      gain.gain.setValueAtTime(0.3 * volumeScale, t);
-      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale, t + 0.5);
+      gain.gain.setValueAtTime(0.3 * volumeScale * globalVol, t);
+      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale * globalVol, t + 0.5);
       osc.start(t);
       osc.stop(t + 0.5);
     }
@@ -539,17 +592,17 @@ export default class GameScene extends Phaser.Scene {
     if (typeof (you as any).score === 'number') this.lastScore = (you as any).score;
     if (typeof (you as any).level === 'number') this.lastLevel = (you as any).level;
 
-    // Update radar level from powerupLevels if available
-    if ((you as any).powerupLevels?.Radar !== undefined) {
-      const newRadarLevel = (you as any).powerupLevels.Radar;
-      if (this.radarLevel !== newRadarLevel) {
-        this.radarLevel = newRadarLevel;
+    // Update wings level from powerupLevels if available
+    if ((you as any).powerupLevels?.Wings !== undefined) {
+      const newWingsLevel = (you as any).powerupLevels.Wings;
+      if (this.wingsLevel !== newWingsLevel) {
+        this.wingsLevel = newWingsLevel;
         this.updateCameraZoom();
       }
     } else if ((you as any).hp === 0 || (you as any).hp === undefined) {
-      // Reset radar level when dead (before respawn)
-      if (this.radarLevel !== 0) {
-        this.radarLevel = 0;
+      // Reset wings level when dead (before respawn)
+      if (this.wingsLevel !== 0) {
+        this.wingsLevel = 0;
         this.updateCameraZoom();
       }
     }
@@ -564,7 +617,7 @@ export default class GameScene extends Phaser.Scene {
 
     for (const e of s.entities) {
       if (e.kind === "bullet") {
-        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy); // Pass velocity here
+        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy, (e as any).pierce); // Pass velocity and pierce here
         if (isNew && e.ownerId !== this.net.youId && !this.gameEnded) {
           const dist = Math.hypot(e.x - youX, e.y - youY);
           if (dist < 1000) {
@@ -614,7 +667,7 @@ export default class GameScene extends Phaser.Scene {
             fireCooldownMs: e.fireCooldownMs,
             hullLevel: e.powerupLevels?.Hull,
             engineLevel: e.powerupLevels?.Engine,
-            radarLevel: e.powerupLevels?.Radar,
+            wingsLevel: e.powerupLevels?.Wings,
             isGiant: e.isGiant,
             specialVariant: (e as any).specialVariant,
           });
@@ -626,9 +679,7 @@ export default class GameScene extends Phaser.Scene {
           rock = this.add.sprite(0, 0, "rock").setDepth(2);
           this.rockSprites.set(e.id, rock);
         }
-        if (e.r) {
-          rock.setDisplaySize(e.r * 2, e.r * 2);
-        }
+        rock.setDisplaySize(e.r * 2, e.r * 2);
       }
     }
     
@@ -674,8 +725,8 @@ export default class GameScene extends Phaser.Scene {
       }
     } else {
       // Desktop: Asteroids-style tank controls
-      // Turn speed: base 4.0 rad/s + 0.5 per radar level
-      const turnSpeed = 4.0 + (this.radarLevel * 0.5);
+      // Turn speed: base 4.0 rad/s + 0.5 per wings level
+      const turnSpeed = 4.0 + (this.wingsLevel * 0.5);
 
       // A/D rotate heading
       if (this.keyA?.isDown) this.heading -= turnSpeed * dt;
@@ -716,10 +767,10 @@ export default class GameScene extends Phaser.Scene {
     const spaceDown = this.space?.isDown ?? false;
     this.fireHeld = spaceDown || this.touchFireHeld || this.altFireHeld;
 
-    // Play shoot sound locally continuously if held
+    // Play shoot sound locally continuously if held, but only if spawned and game is active
     const currentNow = performance.now();
-    if (this.fireHeld) {
-      const youState = this.interp.get(this.net.youId || "");
+    const youState = this.net.youId ? this.interp.get(this.net.youId) : null;
+    if (this.fireHeld && !this.gameEnded && youState) {
       const cooldown = (youState as any)?.fireCooldownMs || 220;
       if (currentNow - this.lastShootSound >= cooldown) {
         this.playSynthSound("shoot", 1.0);
@@ -780,7 +831,18 @@ export default class GameScene extends Phaser.Scene {
 
         // Name tag coloring
         if (ship.nameTag) {
-          if ((e as any).isGiant || ((e as any).level && (e as any).level > 5)) {
+          let shouldBeRed = false;
+          if (youI && (youI as any).level > 8) {
+            // After player lvl 8, only bots lvl 7 or higher are red (even if giant)
+            shouldBeRed = (!(e as any).socketId && (e as any).level >= 7);
+          } else if ((e as any).isGiant) {
+            shouldBeRed = true; // Giants always red before player lvl 8
+          } else {
+            // Default behavior before player lvl 8
+            shouldBeRed = ((e as any).level && (e as any).level > 5);
+          }
+          
+          if (shouldBeRed) {
             ship.nameTag.setColor("#ff0000");
           } else {
             ship.nameTag.setColor("#ffffff");
@@ -878,9 +940,11 @@ export default class GameScene extends Phaser.Scene {
     if (youI) {
       this.camX = youI.x;
       this.camY = youI.y;
+      this.specialVariant = youI.specialVariant;
     } else if (this.recon.you) {
       this.camX = this.recon.you.x;
       this.camY = this.recon.you.y;
+      this.specialVariant = this.recon.you.specialVariant;
     }
 
     // Advance entity interpolation

@@ -13,7 +13,8 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
       if (p1.specialVariant !== 'Bumper Body' && p2.specialVariant !== 'Bumper Body') continue;
       
       // If one of them is already dead, skip
-      if (p1.hp <= 0 || p2.hp <= 0) continue;
+      if (p1.hp <= 0 || (p1.deadUntil && performance.now() < p1.deadUntil)) continue;
+      if (p2.hp <= 0 || (p2.deadUntil && performance.now() < p2.deadUntil)) continue;
 
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
@@ -27,45 +28,66 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
         
         // Push apart
         const overlap = r - d;
-        const push1 = p1.specialVariant === 'Bumper Body' ? 0.2 : 0.8;
-        const push2 = p2.specialVariant === 'Bumper Body' ? 0.2 : 0.8;
+        p1.x -= nx * overlap * 0.5;
+        p1.y -= ny * overlap * 0.5;
+        p2.x += nx * overlap * 0.5;
+        p2.y += ny * overlap * 0.5;
 
-        p1.x -= nx * overlap * push1;
-        p1.y -= ny * overlap * push1;
-        p2.x += nx * overlap * push2;
-        p2.y += ny * overlap * push2;
-
-        // Add velocity kick
-        const kickStrength = 400;
+        // Flat positional bump for Bumper Body
+        const bumpDist = 60;
         if (p1.specialVariant === 'Bumper Body') {
-          p2.vx += nx * kickStrength;
-          p2.vy += ny * kickStrength;
-        } else {
-          p1.vx -= nx * kickStrength;
-          p1.vy -= ny * kickStrength;
+          p2.x += nx * bumpDist;
+          p2.y += ny * bumpDist;
+        }
+        if (p2.specialVariant === 'Bumper Body') {
+          p1.x -= nx * bumpDist;
+          p1.y -= ny * bumpDist;
+        }
+
+        // Emit BumperHit event to players
+        const hitEvent = { type: "BumperHit" as const, x: p1.x + nx * (overlap * 0.5), y: p1.y + ny * (overlap * 0.5) };
+        for (const p of world.players.values()) {
+          if (p.socketId) world.io?.emitEvent(p.socketId, hitEvent);
+        }
+
+        // Add velocity kick to bounce them off slightly
+        const vDotN = p1.vx * nx + p1.vy * ny;
+        if (vDotN > 0) {
+           p1.vx -= 1.5 * vDotN * nx;
+           p1.vy -= 1.5 * vDotN * ny;
+        }
+        const v2DotN = p2.vx * nx + p2.vy * ny;
+        if (v2DotN < 0) {
+           p2.vx -= 1.5 * v2DotN * nx;
+           p2.vy -= 1.5 * v2DotN * ny;
         }
 
         // Apply damage
         const applyBumperDamage = (attacker: Player, victim: Player) => {
-          const prevHp = victim.hp;
-          victim.hp -= 20 * dt; // DPS
-          victim.lastDamageTakenAt = performance.now();
-          if (prevHp > 0 && victim.hp <= 0) {
-            victim.deadUntil = performance.now() + (victim.socketId ? PLAYER.respawnDelayMs : 8000);
-            for (const p of world.players.values()) {
-              if (p.socketId) {
-                world.io?.emitEvent(p.socketId, {
-                  type: "Kill",
-                  killerId: attacker.id,
-                  victimId: victim.id,
-                  victimScore: victim.score,
-                  victimLevel: victim.level,
-                  x: victim.x,
-                  y: victim.y,
-                });
+          // Flat 80 damage with 500ms cooldown
+          const now = performance.now();
+          if (now - (victim.lastBumperHitAt || 0) > 500) {
+            const prevHp = victim.hp;
+            victim.hp -= 80;
+            victim.lastBumperHitAt = now;
+            victim.lastDamageTakenAt = now;
+            if (prevHp > 0 && victim.hp <= 0) {
+              victim.deadUntil = now + (victim.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
+              for (const p of world.players.values()) {
+                if (p.socketId) {
+                  world.io?.emitEvent(p.socketId, {
+                    type: "Kill",
+                    killerId: attacker.id,
+                    victimId: victim.id,
+                    victimScore: victim.score,
+                    victimLevel: victim.level,
+                    x: victim.x,
+                    y: victim.y,
+                  });
+                }
               }
+              spawnDeathPickups(world, victim);
             }
-            spawnDeathPickups(world, victim);
           }
         };
 

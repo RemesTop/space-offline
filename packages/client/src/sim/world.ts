@@ -46,8 +46,9 @@ export type Player = {
   invulnUntil: number;
   isGiant?: boolean;
   altFire?: "railgun" | "spread";
-  specialVariant?: 'Regen Wings' | 'Gravity Point' | 'Bumper Body' | 'Twin Weapon' | 'Laser Window' | 'Omni Window';
+  specialVariant?: 'Regen Wings' | 'Zero gravity' | 'Bumper Body' | 'Twin Weapon' | 'Laser Beam' | 'Bullet hell';
   lastDamageTakenAt?: number;
+  lastBumperHitAt?: number;
   // Powerup levels (1-5 for each powerup type)
   powerupLevels: {
     Hull: number;
@@ -55,7 +56,7 @@ export type Player = {
     Engine: number;
     FireRate: number;
     Magnet: number;
-    Radar: number;
+    Wings: number;
   };
   inputQueue: Array<{
     seq: number;

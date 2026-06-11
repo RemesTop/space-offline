@@ -82,6 +82,14 @@ export default class Parallax {
     this.far.setScale(zoomAdjustment);
     this.near.setScale(zoomAdjustment);
   }
+  /** Update the sizes of the starfield layers when screen resizes. */
+  resize(width: number, height: number) {
+    this.far.setSize(width, height);
+    this.near.setSize(width, height);
+    // Re-center them if needed
+    this.far.setPosition(width / 2, height / 2);
+    this.near.setPosition(width / 2, height / 2);
+  }
 }
 
 function createStarTexture(

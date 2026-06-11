@@ -21,6 +21,10 @@ export class NamePrompt {
           <span style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">WASD</kbd> to move your ship</span>
           <span style="display:inline-block; margin:0 8px;"><kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Space</kbd> or <kbd style="background:#28324a;padding:2px 6px;border-radius:4px;color:#fff;border:1px solid #3c4866;">Mouse 1</kbd> to shoot</span>
         </div>
+        <div class="volume-control" style="margin-top: 12px; font-size: 13px; color: #8aa2c7; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>Volume</span>
+          <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" style="width: 100px; cursor: pointer;">
+        </div>
       </div>
       <form class="name-form" autocomplete="off">
         <label class="input-group">
@@ -71,6 +75,23 @@ export class NamePrompt {
       this.input.focus();
       this.input.select();
     });
+
+    const volSlider = modal.querySelector('#vol-slider') as HTMLInputElement;
+    const storedVol = localStorage.getItem('globalVolume');
+    if (storedVol !== null) {
+      volSlider.value = storedVol;
+    }
+    // Update live volume if needed
+    volSlider.addEventListener('input', () => {
+      const v = parseFloat(volSlider.value);
+      localStorage.setItem('globalVolume', v.toString());
+      // Try to update phaser sound if game is active
+      const game = (window as any).phaserGame;
+      if (game && game.sound) {
+        game.sound.volume = v;
+      }
+    });
+
     modal.querySelector('.name-form')!.addEventListener('submit', (e) => {
       e.preventDefault();
       if (!this.playBtn.disabled) this.finish();

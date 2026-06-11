@@ -451,7 +451,7 @@ body.pre-game .touch-fire { opacity:0; transform:translateY(4px) scale(.97); poi
 .go-stat-list li { display:flex; justify-content:space-between; font-size:14px; background:rgba(255,255,255,0.04); padding:10px 14px; border:1px solid #293248; border-radius:8px; }
 .go-stat-list li span { color:#7f92ad; }
 .go-stat-list li strong { font-weight:600; color:#e6ecff; }
-.go-actions { display:flex; justify-content:center; margin-bottom:10px; }
+.go-actions { display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:10px; }
 .go-actions .btn { flex:0 0 auto; min-width:180px; }
 .go-hint { text-align:center; font-size:11px; color:#6f86aa; letter-spacing:.5px; }
 body.game-over .hud, body.game-over .powerups-panel, body.game-over .bottom-bars, body.game-over .velocity-panel, body.game-over .touch-fire { opacity:0; transform:translateY(4px) scale(.97); pointer-events:none; }

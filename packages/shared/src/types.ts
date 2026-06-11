@@ -10,7 +10,7 @@ export type AltFireType = "railgun" | "spread";
 
 export type SpecialVariant = 'Regen Wings' | 'Gravity Point' | 'Bumper Body' | 'Twin Weapon' | 'Laser Window' | 'Omni Window';
 
-export type PowerupFamily = "Hull" | "Damage" | "Engine" | "FireRate" | "Magnet" | "Radar" | "Special";
+export type PowerupFamily = "Hull" | "Damage" | "Engine" | "FireRate" | "Magnet" | "Wings" | "Special";
 
 export type PowerupChoice = {
   family: PowerupFamily | "AltFire";

@@ -25,7 +25,7 @@ export const applyGravity = (world: World, dt: number) => {
         p.hp -= GRAVITY.sunHeatDps * dt;
         p.lastDamageTakenAt = performance.now();
         if (prevHp > 0 && p.hp <= 0) {
-          p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+          p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
           for (const player of world.players.values()) {
             if (player.socketId) {
               world.io?.emitEvent(player.socketId, {
@@ -47,7 +47,7 @@ export const applyGravity = (world: World, dt: number) => {
         p.hp -= GRAVITY.blackHoleEdgeDps * dt;
         p.lastDamageTakenAt = performance.now();
         if (prevHp > 0 && p.hp <= 0) {
-          p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+          p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
           for (const player of world.players.values()) {
             if (player.socketId) {
               world.io?.emitEvent(player.socketId, {
@@ -75,7 +75,7 @@ export const applyGravity = (world: World, dt: number) => {
           p.hp -= damage;
           p.lastDamageTakenAt = performance.now();
           if (prevHp > 0 && p.hp <= 0) {
-            p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+            p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
             // Emit to all players so everyone sees the explosion
             for (const player of world.players.values()) {
               if (player.socketId) {
@@ -144,6 +144,9 @@ export const applyGravity = (world: World, dt: number) => {
          }
          r.x = w.x - nx * (w.radius + r.r + 1);
          r.y = w.y - ny * (w.radius + r.r + 1);
+      } else if ((w.type === "sun" || w.type === "blackhole") && d < w.radius + r.r) {
+         // Teleport far away to trigger cleanup and allow respawn
+         r.x = -5000;
       }
     }
   }
@@ -181,17 +184,11 @@ export const integrate = (world: World, dt: number) => {
     b.x += b.vx * dt;
     b.y += b.vy * dt;
   }
-  const toDeleteRocks = [];
   for (const rock of world.rocks.values()) {
     rock.x += rock.vx * dt;
     rock.y += rock.vy * dt;
     rock.rotation = (rock.rotation || 0) + (rock.vx > 0 ? 0.5 : -0.5) * dt;
-
-    if (rock.x < -2000 || rock.x > world.w + 2000 || rock.y < -2000 || rock.y > world.h + 2000) {
-      toDeleteRocks.push(rock.id);
-    }
   }
-  for (const id of toDeleteRocks) world.rocks.delete(id);
 };
 
 export const bulletHits = (world: World, dt: number, now: number) => {
@@ -215,7 +212,7 @@ export const bulletHits = (world: World, dt: number, now: number) => {
         p.lastDamageTakenAt = now;
         if (!b.pierce) toRemove.push(b.id);
         if (prevHp > 0 && p.hp <= 0) {
-          p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : 8000);
+          p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
           // Emit kill event for explosion effect to everyone
           for (const player of world.players.values()) {
             if (player.socketId) {
