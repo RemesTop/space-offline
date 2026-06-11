@@ -36,13 +36,11 @@ export class HUD {
     // Initialize with base (all 0) so panel is never empty before first snapshot
     this.setPowerups({});
 
-    // Create velocity panel in bottom left corner
+    // Create velocity panel in bottom right corner (or under leaderboard)
     this.velocityPanel = document.createElement("div");
     this.velocityPanel.className = "velocity-panel";
     this.velocityPanel.innerHTML = `
-      <div class="velocity-label">Speed</div>
-      <div class="velocity-value">0</div>
-      <div class="velocity-unit">px/s</div>
+      <span class="velocity-label">Speed:</span> <span class="velocity-value">0</span>
     `;
     document.body.appendChild(this.velocityPanel);
 

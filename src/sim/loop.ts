@@ -34,6 +34,13 @@ export const startLoop = (io: LocalEmitter, world: World) => {
   let accumulator = 0; // ms
 
   const frame = () => {
+    // If the browser tab is hidden, pause the simulation entirely
+    if (typeof document !== 'undefined' && document.hidden) {
+      last = performance.now();
+      setTimeout(frame, 100);
+      return;
+    }
+
     const now = performance.now();
     let frameDt = now - last; // ms
     if (frameDt > 200) frameDt = 200; // safety cap spike (pause / debugger)

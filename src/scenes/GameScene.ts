@@ -114,8 +114,9 @@ export default class GameScene extends Phaser.Scene {
   // Calculate camera zoom based on wings level
   updateCameraZoom() {
     if (this.debugFullView) return; // Don't interfere with debug view
-    const baseZoom = 1.4; // Base zoom level
-    const zoomOutPerLevel = 0.18; // How much to zoom out per wings level
+    const isDesktop = this.sys.game.device.os.desktop;
+    const baseZoom = isDesktop ? 1.4 : 0.75; // Use much lower base zoom on mobile
+    const zoomOutPerLevel = isDesktop ? 0.18 : 0.09; // Scale the zoom out effect on mobile too
     const calculatedZoom = baseZoom - (this.wingsLevel * zoomOutPerLevel);
     this.cameras.main.setZoom(calculatedZoom);
   }
@@ -762,10 +763,10 @@ export default class GameScene extends Phaser.Scene {
     if (!isDesktop) {
       // Mobile logic: follow pointer
       const pointer = this.input.activePointer;
-      this.heading = Math.atan2(pointer.worldY - cy, pointer.worldX - cx);
+      this.heading = Math.atan2(pointer.y - cy, pointer.x - cx);
       this.aim = this.heading;
-      const mouseDist = Math.hypot(pointer.worldX - cx, pointer.worldY - cy);
-      const stopRadius = 120;
+      const mouseDist = Math.hypot(pointer.x - cx, pointer.y - cy);
+      const stopRadius = 80; // smaller stop radius for mobile touch
 
       if ((this.alwaysThrust || this.isThrusting) && mouseDist > stopRadius) {
         this.thrust = { x: Math.cos(this.heading), y: Math.sin(this.heading) };
@@ -806,8 +807,8 @@ export default class GameScene extends Phaser.Scene {
         showThruster = this.keyW?.isDown ?? false;
       } else {
         const pointer = this.input.activePointer;
-        const mouseDist = Math.hypot(pointer.worldX - cx, pointer.worldY - cy);
-        showThruster = (this.thrust.x !== 0 || this.thrust.y !== 0) && mouseDist > 120;
+        const mouseDist = Math.hypot(pointer.x - cx, pointer.y - cy);
+        showThruster = (this.thrust.x !== 0 || this.thrust.y !== 0) && mouseDist > 80;
       }
       myShip.setThrusterVisible(showThruster);
     }
