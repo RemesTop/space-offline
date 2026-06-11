@@ -184,8 +184,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("rock", new URL("../assets/rock.png", import.meta.url).toString());
 
     // Audio assets - swapped according to request
-    this.load.audio("menuMusic", new URL("../assets/sounds/space-ambient-351305.mp3", import.meta.url).toString());
-    this.load.audio("gameMusic", new URL("../assets/sounds/ambient-space-fantasy-music-for-mindful-escapism-141536.mp3", import.meta.url).toString());
+    this.load.audio("menuMusic", new URL("../assets/sounds/space-ambient-compressed.mp3", import.meta.url).toString());
+    this.load.audio("gameMusic", new URL("../assets/sounds/ambient-space-fantasy-music-for-mindful-escapism-compressed.mp3", import.meta.url).toString());
   }
 
   async create(data?: { playerName?: string }) {
@@ -286,26 +286,30 @@ export default class GameScene extends Phaser.Scene {
       this.sound.volume = parseFloat(storedVol);
     }
 
-    this.menuMusic = this.sound.add('menuMusic', { loop: true, volume: 0 });
-    this.gameMusic = this.sound.add('gameMusic', { loop: true, volume: 0.5 });
-    (this.menuMusic as any).setVolume?.(0);
-    (this.gameMusic as any).setVolume?.(0.5);
+    try {
+      this.menuMusic = this.sound.add('menuMusic', { loop: true, volume: 0 });
+      this.gameMusic = this.sound.add('gameMusic', { loop: true, volume: 0.5 });
+      (this.menuMusic as any).setVolume?.(0);
+      (this.gameMusic as any).setVolume?.(0.5);
+    } catch (e) {
+      console.warn("Failed to initialize audio:", e);
+    }
 
     let menuFadedIn = false;
     const fadeInMenu = () => {
-      if (menuFadedIn) return;
+      if (menuFadedIn || !this.menuMusic) return;
       menuFadedIn = true;
       this.fadeSound(this.menuMusic, 0, 0.5, 800, false);
     };
 
     if ((this.sound as any).locked) {
       this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
-        if (!this.menuMusic.isPlaying) { try { this.menuMusic.play(); } catch {} }
+        if (this.menuMusic && !this.menuMusic.isPlaying) { try { this.menuMusic.play(); } catch {} }
         fadeInMenu();
       });
-      try { this.menuMusic.play(); } catch {}
+      if (this.menuMusic) { try { this.menuMusic.play(); } catch {} }
     } else {
-      try { if (!this.menuMusic.isPlaying) this.menuMusic.play(); } catch {}
+      if (this.menuMusic) { try { if (!this.menuMusic.isPlaying) this.menuMusic.play(); } catch {} }
       fadeInMenu();
     }
 
@@ -890,23 +894,25 @@ export default class GameScene extends Phaser.Scene {
         }
         ship.lastHp = e.hp;
 
-        // Name tag coloring
+        // Name tag styling for dangerous enemies
         if (ship.nameTag) {
-          let shouldBeRed = false;
+          let isDangerous = false;
           if (youI && (youI as any).level > 8) {
-            // After player lvl 8, only bots lvl 7 or higher are red (even if giant)
-            shouldBeRed = (!(e as any).socketId && (e as any).level >= 7);
+            // After player lvl 8, only bots lvl 7 or higher are dangerous
+            isDangerous = (!(e as any).socketId && (e as any).level >= 7);
           } else if ((e as any).isGiant) {
-            shouldBeRed = true; // Giants always red before player lvl 8
+            isDangerous = true; // Giants always dangerous before player lvl 8
           } else {
             // Default behavior before player lvl 8
-            shouldBeRed = ((e as any).level && (e as any).level > 5);
+            isDangerous = ((e as any).level && (e as any).level > 5);
           }
           
-          if (shouldBeRed) {
-            ship.nameTag.setColor("#ff0000");
+          if (isDangerous) {
+            ship.nameTag.setFontStyle("bold");
+            ship.nameTag.setStroke("#000000", 4);
           } else {
-            ship.nameTag.setColor("#ffffff");
+            ship.nameTag.setFontStyle("normal");
+            ship.nameTag.setStroke("#000000", 3);
           }
         }
 
@@ -1026,7 +1032,9 @@ export default class GameScene extends Phaser.Scene {
     // Draw arena and gravity overlay (use camX/camY)
     if (document && (document.body.classList.contains('pre-game') || document.body.classList.contains('game-over'))) {
       // Hide world border during name prompt or game over
-      this.boundsGfx.clear();
+      if (this.boundsGfx) {
+        this.boundsGfx.clear();
+      }
     } else {
       drawArenaBounds(this);
     }
@@ -1258,9 +1266,11 @@ export default class GameScene extends Phaser.Scene {
       this.fadeSound(this.menuMusic, 0.5, 0, 600, true);
     }
     if (this.gameMusic && !this.gameMusic.isPlaying) {
-      (this.gameMusic as any).setVolume?.(0);
-      this.gameMusic.play();
-      this.fadeSound(this.gameMusic, 0, 0.5, 900, false);
+      try {
+        (this.gameMusic as any).setVolume?.(0);
+        this.gameMusic.play();
+        this.fadeSound(this.gameMusic, 0, 0.5, 900, false);
+      } catch (e) {}
     }
   }
 
@@ -1269,9 +1279,11 @@ export default class GameScene extends Phaser.Scene {
       this.fadeSound(this.gameMusic, 0.5, 0, 800, true);
     }
     if (this.menuMusic && !this.menuMusic.isPlaying) {
-      (this.menuMusic as any).setVolume?.(0);
-      this.menuMusic.play();
-      this.fadeSound(this.menuMusic, 0, 0.5, 1200, false);
+      try {
+        (this.menuMusic as any).setVolume?.(0);
+        this.menuMusic.play();
+        this.fadeSound(this.menuMusic, 0, 0.5, 1200, false);
+      } catch (e) {}
     }
   }
 

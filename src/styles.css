@@ -178,6 +178,7 @@ body {
   font-size: 13px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
+  pointer-events: none;
 }
 
 .powerups-panel h3 {
@@ -223,7 +224,7 @@ body {
 .level-up-modal {
   max-width: 600px;
 }
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 600px) {
   .level-up-modal {
     position: fixed;
     left: 20px;
@@ -279,9 +280,32 @@ body {
 }
 
 .powerup-desc {
-  font-size: 13px;
-  color: #d7e0ff;
+  font-size: 14px;
+  color: #a0a8c0;
+  margin: 0;
   line-height: 1.4;
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .level-up-modal h2 { margin: 0 0 4px 0; font-size: 16px; }
+  .powerup-choices { 
+    gap: 6px; 
+    margin-top: 4px; 
+    grid-template-columns: repeat(3, 1fr); /* force 3 columns */
+  }
+  .powerup-choice-btn { padding: 4px 8px; }
+  .powerup-name { font-size: 13px; }
+  .powerup-desc { font-size: 11px; }
+  .powerup-header { margin-bottom: 2px; }
+  .modal.level-up-modal { 
+    padding: 8px; 
+    max-width: 96%; 
+    margin-top: 2vh; /* much smaller top margin */
+    max-height: 96vh;
+    position: relative;
+    left: auto;
+    top: auto;
+  }
 }
 
 /* Velocity Panel - Small Pill */
