@@ -108,7 +108,7 @@ export const spawnBot = (world: World): void => {
       const upgradeRnd = Math.random();
       if (upgradeRnd < 0.25) {
         player.powerupLevels.Damage++;
-        player.damage += 4;
+        player.damage += 2;
       } else if (upgradeRnd < 0.5) {
         player.powerupLevels.Engine++;
         player.maxSpeed += 40;

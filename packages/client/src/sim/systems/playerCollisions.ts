@@ -95,10 +95,8 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
           applyBumperDamage(p1, p2);
         } else if (p2.specialVariants.includes('Bumper Body') && !p1.specialVariants.includes('Bumper Body')) {
           applyBumperDamage(p2, p1);
-        } else if (p1.specialVariants.includes('Bumper Body') && p2.specialVariants.includes('Bumper Body')) {
-          applyBumperDamage(p1, p2);
-          applyBumperDamage(p2, p1);
         }
+        // Bumper body ships deal 0 bump damage to each other
       }
     }
   }

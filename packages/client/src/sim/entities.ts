@@ -247,14 +247,11 @@ export const applyLevelChoice = (
     if (p.powerupLevels.Damage < 4) {
       p.powerupLevels.Damage++;
       if (p.powerupLevels.Damage > 2) {
-        // Lvl 4+ gets +1
+        // Lvl 4 gets +1
         p.damage += 1;
-      } else if (p.powerupLevels.Damage > 1) {
-        // Lvl 3 gets +2
-        p.damage += 2;
       } else {
-        // Lvl 2 gets +4
-        p.damage += 4;
+        // Lvl 2 and 3 get +2
+        p.damage += 2;
       }
     }
   } else if (choice.family === "Engine" && choice.tier) {
@@ -368,7 +365,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "Damage" as const,
       tier: nextLevel,
       label: `Damage Lv${nextLevel + 1}`,
-      desc: nextLevel > 2 ? "+1 Damage" : nextLevel > 1 ? "+2 Damage" : "+4 Damage",
+      desc: nextLevel > 2 ? "+1 Damage" : "+2 Damage",
     });
   }
 

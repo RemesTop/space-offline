@@ -51,7 +51,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
             const upgradeRnd = Math.random();
             if (upgradeRnd < 0.25) {
               p.powerupLevels.Damage++;
-              p.damage += 4;
+              p.damage += 2;
             } else if (upgradeRnd < 0.5) {
               p.powerupLevels.Engine++;
               p.maxSpeed += 40;

@@ -114,17 +114,8 @@ export const applyGravity = (world: World, dt: number) => {
       r.vx += ax * dt;
       r.vy += ay * dt;
 
-      // Optional: hard collision with planets for rocks?
-      if (w.type === "planet" && d < w.radius + r.r) {
-         const nx = dx / d, ny = dy / d;
-         const vDotN = r.vx * nx + r.vy * ny;
-         if (vDotN < 0) {
-           r.vx -= 1.8 * vDotN * nx;
-           r.vy -= 1.8 * vDotN * ny;
-         }
-         r.x = w.x - nx * (w.radius + r.r + 1);
-         r.y = w.y - ny * (w.radius + r.r + 1);
-      } else if ((w.type === "sun" || w.type === "blackhole") && d < w.radius * 0.25) {
+      // Planets, suns, and blackholes destroy rocks on impact
+      if ((w.type === "planet" || w.type === "sun" || w.type === "blackhole") && d < w.radius + r.r) {
          // Mark for deletion; spawnRocks() will replace them naturally
          rocksToDelete.push({ id: r.id, x: r.x, y: r.y });
       }
