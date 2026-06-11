@@ -58,10 +58,10 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
               p.accel += 80;
             } else if (upgradeRnd < 0.75) {
               p.powerupLevels.FireRate++;
-              p.fireCooldownMs = Math.max(100, p.fireCooldownMs - 30);
+              p.fireCooldownMs = Math.max(100, p.fireCooldownMs - 15);
             } else {
               p.powerupLevels.Hull++;
-              p.maxHp += 40;
+              p.maxHp += 20;
             }
           }
         }

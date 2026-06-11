@@ -115,11 +115,11 @@ export const spawnBot = (world: World): void => {
         player.accel += 80;
       } else if (upgradeRnd < 0.75) {
         player.powerupLevels.FireRate++;
-        player.fireCooldownMs = Math.max(100, player.fireCooldownMs - 30);
+        player.fireCooldownMs = Math.max(100, player.fireCooldownMs - 15);
       } else {
         player.powerupLevels.Hull++;
-        player.maxHp += 40;
-        player.hp += 40;
+        player.maxHp += 20;
+        player.hp += 20;
       }
     }
   }

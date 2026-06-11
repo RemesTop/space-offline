@@ -97,7 +97,7 @@ export const GRAVITY = {
       x: 600,
       y: 1000,
       mass: 2.5e5,
-      radius: 130,
+      radius: 80,
       influenceRadius: 500,
       type: "planet" as const,
       maxPull: 200,

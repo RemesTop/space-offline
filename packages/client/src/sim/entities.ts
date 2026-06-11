@@ -239,14 +239,9 @@ export const applyLevelChoice = (
     // Check if Hull is already at max level (4)
     if (p.powerupLevels.Hull < 4) {
       p.powerupLevels.Hull++;
-      // HP upgrade is significantly reduced for the later levels (hull 2 and after only +20)
-      if (p.powerupLevels.Hull >= 2) {
-        p.maxHp += 20;
-        p.hp = Math.min(p.maxHp, p.hp + 20);
-      } else {
-        p.maxHp += 40;
-        p.hp = Math.min(p.maxHp, p.hp + 40);
-      }
+      // All health upgrades give 20 health
+      p.maxHp += 20;
+      p.hp = Math.min(p.maxHp, p.hp + 20);
     }
   } else if (choice.family === "Damage" && choice.tier) {
     if (p.powerupLevels.Damage < 4) {
@@ -280,12 +275,9 @@ export const applyLevelChoice = (
       if (p.powerupLevels.FireRate > 2) {
         // Lvl 4+ gets -10
         p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 10);
-      } else if (p.powerupLevels.FireRate > 1) {
-        // Lvl 3 gets -15
-        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 15);
       } else {
-        // Lvl 2 gets -30
-        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 30);
+        // Lvl 2 and 3 get -15
+        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 15);
       }
     }
   } else if (choice.family === "Magnet" && choice.tier) {
@@ -366,7 +358,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "Hull" as const,
       tier: nextLevel,
       label: `Hull Lv${nextLevel + 1}`,
-      desc: nextLevel > 1 ? "+20 Max HP" : "+40 Max HP",
+      desc: "+20 Max HP",
     });
   }
 
@@ -396,7 +388,7 @@ const rollChoices = (p: Player): PowerupChoice[] => {
       family: "FireRate" as const,
       tier: nextLevel,
       label: `Fire Rate Lv${nextLevel + 1}`,
-      desc: nextLevel > 2 ? "-10ms Cooldown" : nextLevel > 1 ? "-15ms Cooldown" : "-30ms Cooldown",
+      desc: nextLevel > 2 ? "-10ms Cooldown" : "-15ms Cooldown",
     });
   }
 
