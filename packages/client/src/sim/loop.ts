@@ -77,7 +77,7 @@ function doSimTick(io: LocalEmitter, world: World, dt: number, nowMs: number) {
     botSpawnAccumulator += dt * 1000;
     if (botSpawnAccumulator >= 3000) {
       botSpawnAccumulator = 0;
-      const targetBotCount = 10; // Fixed 10 bots for singleplayer mode
+      const targetBotCount = 8; // Fixed 8 bots for singleplayer mode
       if (getBotCount() < targetBotCount) spawnBot(world);
     }
   }

@@ -156,6 +156,6 @@ export class HUD {
         return e.id === youId ? `<b>${text}</b>` : text;
       })
       .join("<br/>");
-    this.board.innerHTML = `<strong>Top 10</strong><br/>${lines || "No players"}`;
+    this.board.innerHTML = `<strong>Leaderboard</strong><br/>${lines || "No players"}`;
   }
 }
