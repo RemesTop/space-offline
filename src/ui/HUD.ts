@@ -36,13 +36,28 @@ export class HUD {
     // Initialize with base (all 0) so panel is never empty before first snapshot
     this.setPowerups({});
 
-    // Create velocity panel inside powerups panel, top right corner
+    // Create velocity panel
     this.velocityPanel = document.createElement("div");
     this.velocityPanel.className = "velocity-panel";
     this.velocityPanel.innerHTML = `
       <span class="velocity-label">Speed:</span> <span class="velocity-value">0</span>
     `;
-    this.powerupsPanel.appendChild(this.velocityPanel);
+    
+    // Dynamically move velocity panel based on screen size
+    const updateVelocityLayout = () => {
+      const isMobile = window.innerWidth <= 768 || (window.innerHeight <= 480 && window.innerWidth > window.innerHeight);
+      if (isMobile) {
+        if (this.velocityPanel.parentElement !== document.body) {
+          document.body.appendChild(this.velocityPanel);
+        }
+      } else {
+        if (this.velocityPanel.parentElement !== this.powerupsPanel) {
+          this.powerupsPanel.appendChild(this.velocityPanel);
+        }
+      }
+    };
+    window.addEventListener('resize', updateVelocityLayout);
+    updateVelocityLayout(); // initial placement
 
     this.bars = {
       hp: hp.firstElementChild as HTMLDivElement,

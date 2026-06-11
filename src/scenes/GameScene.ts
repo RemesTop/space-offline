@@ -255,12 +255,15 @@ export default class GameScene extends Phaser.Scene {
     // ALWAYS recreate gameplay display-object based managers (their GameObjects were destroyed on scene restart)
     this.parallax = new Parallax(this);
     
-    // Clean up existing resize listener to prevent multiple accumulative handlers
-    this.scale.off('resize');
-    this.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
+    const resizeHandler = (gameSize: Phaser.Structs.Size) => {
       if (this.parallax) {
         this.parallax.resize(gameSize.width, gameSize.height);
       }
+      this.updateCameraZoom();
+    };
+    this.scale.on('resize', resizeHandler);
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', resizeHandler);
     });
 
     if (this.bullets) {

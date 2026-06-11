@@ -7,7 +7,6 @@ const config: Phaser.Types.Core.GameConfig = {
   backgroundColor: "#05070b",
   scale: {
     mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
     width: "100%",
     height: "100%",
   },
@@ -26,11 +25,17 @@ const game = new Phaser.Game(config);
 
 // Force resize on mobile orientation changes to prevent stuck aspect ratios
 const handleResize = () => {
-  setTimeout(() => {
+  const doResize = () => {
     if (game.scale) {
       game.scale.resize(window.innerWidth, window.innerHeight);
     }
-  }, 100);
+  };
+  // Browsers often report incorrect dimensions immediately after orientation change
+  doResize();
+  setTimeout(doResize, 100);
+  setTimeout(doResize, 300);
+  setTimeout(doResize, 600);
+  setTimeout(doResize, 1000);
 };
 window.addEventListener('resize', handleResize);
 window.addEventListener('orientationchange', handleResize);
