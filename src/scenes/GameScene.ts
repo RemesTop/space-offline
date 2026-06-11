@@ -111,6 +111,17 @@ export default class GameScene extends Phaser.Scene {
     super("Game");
   }
 
+  namePromise!: Promise<string>;
+
+  init(data?: { playerName?: string }) {
+    if (data?.playerName) {
+      this.namePromise = Promise.resolve(data.playerName);
+    } else {
+      const prompt = new NamePrompt();
+      this.namePromise = prompt.getName();
+    }
+  }
+
   // Calculate camera zoom based on wings level
   updateCameraZoom() {
     if (this.debugFullView) return; // Don't interfere with debug view
@@ -388,18 +399,9 @@ export default class GameScene extends Phaser.Scene {
     // We compute aim/thrust every frame in update() now.
 
     // Ask for player name (skip prompt on restart)
-    let name: string;
-    if (data?.playerName) {
-      name = data.playerName;
-      this.playerName = name;
-      // Immediately start game music (skip menu linger)
-      this.fadeToGameMusic();
-    } else {
-      const prompt = new NamePrompt();
-      name = await prompt.getName();
-      this.playerName = name;
-      this.fadeToGameMusic();
-    }
+    let name = await this.namePromise;
+    this.playerName = name;
+    this.fadeToGameMusic();
 
     // Start connecting (resolves on 'welcome'), register handlers, then join, then await welcome
     const rawUrl = (import.meta.env as any).VITE_SERVER_URL || "http://localhost:8008";

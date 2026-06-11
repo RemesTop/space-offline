@@ -1,6 +1,5 @@
 html,
-body,
-#game {
+body {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -10,6 +9,19 @@ body,
   user-select: none;
   -webkit-user-select: none;
   cursor: crosshair;
+}
+
+#game {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+#game canvas {
+  display: block;
 }
 
 .ui-overlay {
