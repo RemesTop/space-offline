@@ -341,13 +341,16 @@ export default class GameScene extends Phaser.Scene {
     this.touchFireBtn.className = "touch-fire";
     this.touchFireBtn.innerText = "FIRE";
     document.body.appendChild(this.touchFireBtn);
-    this.touchFireBtn.onpointerdown = () => {
+    this.touchFireBtn.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       this.touchFireHeld = !this.touchFireHeld; // Toggle fire state
       this.updateTouchFireButton();
-    };
-    // Remove pointerup and pointercancel handlers since we're using toggle
-    this.touchFireBtn.onpointerup = () => {};
-    this.touchFireBtn.onpointercancel = () => {};
+    });
+    this.touchFireBtn.addEventListener("touchstart", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, { passive: false });
     
     // Initialize button appearance
     this.updateTouchFireButton();

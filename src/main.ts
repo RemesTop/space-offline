@@ -23,4 +23,16 @@ const config: Phaser.Types.Core.GameConfig = {
 
 const game = new Phaser.Game(config);
 (window as any).phaserGame = game;
+
+// Force resize on mobile orientation changes to prevent stuck aspect ratios
+const handleResize = () => {
+  setTimeout(() => {
+    if (game.scale) {
+      game.scale.resize(window.innerWidth, window.innerHeight);
+    }
+  }, 100);
+};
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', handleResize);
+
 export default game;
