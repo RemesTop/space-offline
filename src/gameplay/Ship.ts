@@ -143,8 +143,8 @@ export default class Ship {
     }
   }
 
-  playHitEffect() {
-    this._applyTint(0xffffff); // Flash white
+  playHitEffect(flashColor: number = 0xffffff) {
+    this._applyTint(flashColor); 
     this.scene.time.delayedCall(80, () => this._applyTint(this._originalTint));
   }
 

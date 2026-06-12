@@ -11,7 +11,7 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
 
       // Only check if at least one player has Bumper Body
       if (!p1.specialVariants.includes('Bumper Body') && !p2.specialVariants.includes('Bumper Body')) continue;
-      
+
       // If one of them is already dead, skip
       if (p1.hp <= 0 || (p1.deadUntil && performance.now() < p1.deadUntil)) continue;
       if (p2.hp <= 0 || (p2.deadUntil && performance.now() < p2.deadUntil)) continue;
@@ -25,7 +25,7 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
         const d = Math.sqrt(d2) || 1;
         const nx = dx / d;
         const ny = dy / d;
-        
+
         // Push apart
         const overlap = r - d;
         p1.x -= nx * overlap * 0.5;
@@ -51,13 +51,13 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
         // Add velocity kick to bounce them off slightly
         const vDotN = p1.vx * nx + p1.vy * ny;
         if (vDotN > 0) {
-           p1.vx -= 1.5 * vDotN * nx;
-           p1.vy -= 1.5 * vDotN * ny;
+          p1.vx -= 1.5 * vDotN * nx;
+          p1.vy -= 1.5 * vDotN * ny;
         }
         const v2DotN = p2.vx * nx + p2.vy * ny;
         if (v2DotN < 0) {
-           p2.vx -= 1.5 * v2DotN * nx;
-           p2.vy -= 1.5 * v2DotN * ny;
+          p2.vx -= 1.5 * v2DotN * nx;
+          p2.vy -= 1.5 * v2DotN * ny;
         }
 
         // Apply damage
@@ -66,20 +66,20 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
           const now = performance.now();
           if (now - (victim.lastBumperHitAt || 0) > 500) {
             const prevHp = victim.hp;
-            victim.hp -= 80;
+            victim.hp -= 70;
             victim.lastBumperHitAt = now;
             victim.lastDamageTakenAt = now;
             if (prevHp > 0 && victim.hp <= 0) {
               victim.deadUntil = now + (victim.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 45000);
-                world.events.push({
-                  type: "Kill",
-                  killerId: attacker.id,
-                  victimId: victim.id,
-                  victimScore: victim.score,
-                  victimLevel: victim.level,
-                  x: victim.x,
-                  y: victim.y,
-                });
+              world.events.push({
+                type: "Kill",
+                killerId: attacker.id,
+                victimId: victim.id,
+                victimScore: victim.score,
+                victimLevel: victim.level,
+                x: victim.x,
+                y: victim.y,
+              });
               spawnDeathPickups(world, victim);
             }
           }

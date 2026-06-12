@@ -1,7 +1,7 @@
 import type { World, Player } from "../world.js";
 import { randEdgeSpawn } from "../world.js";
 import { PLAYER, BULLET, PICKUPS } from "@shared/constants.js";
-import { xpForLevel, applyLevelChoice } from "../entities.js";
+import { xpForLevel, applyLevelChoice, updatePlayerRadius } from "../entities.js";
 import { spawnDeathPickups } from "./deathDrops.js";
 import { getRandomBotName } from "./bots.js";
 
@@ -34,9 +34,21 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
       
       // If it's a bot, reset all stats completely
       if (!p.socketId) {
-        p.maxHp = PLAYER.baseHP + (p.isGiant ? 200 : 0);
-        p.accel = PLAYER.baseAccel;
-        p.maxSpeed = PLAYER.baseMaxSpeed;
+        let maxPlayerLevel = 0;
+        for (const player of world.players.values()) {
+          if (player.socketId && player.level > maxPlayerLevel) {
+            maxPlayerLevel = player.level;
+          }
+        }
+        
+        let giantChance = 0.05;
+        if (maxPlayerLevel >= 13) giantChance = 0.3;
+        p.isGiant = Math.random() < giantChance;
+
+
+        p.maxHp = PLAYER.baseHP + (p.isGiant ? 175 : 0);
+        p.accel = p.isGiant ? PLAYER.baseAccel * 0.8 : PLAYER.baseAccel;
+        p.maxSpeed = p.isGiant ? PLAYER.baseMaxSpeed * 0.85 : PLAYER.baseMaxSpeed;
         p.damage = BULLET.baseDamage;
         p.fireCooldownMs = BULLET.cooldownMs;
         p.shield = 0;
@@ -49,16 +61,10 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
         p.specialVariants = [];
         p.altFire = undefined;
         p.score = 0;
-        p.name = getRandomBotName();
+        p.name = getRandomBotName(p.isGiant);
 
-        let maxPlayerLevel = 0;
-        for (const player of world.players.values()) {
-          if (player.socketId && player.level > maxPlayerLevel) {
-            maxPlayerLevel = player.level;
-          }
-        }
 
-        if (!p.isGiant && maxPlayerLevel >= 15) {
+        if (!p.isGiant && maxPlayerLevel >= 10) {
           p.maxHp += 50;
           for (let i = 0; i < 2; i++) {
             const upgradeRnd = Math.random();
@@ -78,6 +84,8 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
             }
           }
         }
+        
+        updatePlayerRadius(p);
       }
 
       // Base respawn stats

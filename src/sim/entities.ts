@@ -23,7 +23,8 @@ export const addPlayer = (
   }
 
   // Only bots (socketId is empty) can be giants
-  const giantChance = maxHumanLevel >= 10 ? 0.15 : (maxHumanLevel >= 5 ? 0.05 : 0);
+  let giantChance = 0.05;
+  if (maxHumanLevel >= 13) giantChance = 0.3;
   const isGiant = (!socketId) && Math.random() < giantChance;
   const p: Player = {
     id,
@@ -35,10 +36,10 @@ export const addPlayer = (
     vy: 0,
     r: PLAYER.radius,
     isGiant,
-    hp: PLAYER.baseHP + (isGiant ? 200 : 0),
-    maxHp: PLAYER.baseHP + (isGiant ? 200 : 0),
+    hp: PLAYER.baseHP + (isGiant ? 175 : 0),
+    maxHp: PLAYER.baseHP + (isGiant ? 175 : 0),
     accel: isGiant ? PLAYER.baseAccel * 0.8 : PLAYER.baseAccel,
-    maxSpeed: isGiant ? PLAYER.baseMaxSpeed * 0.4 : PLAYER.baseMaxSpeed,
+    maxSpeed: isGiant ? PLAYER.baseMaxSpeed * 0.85 : PLAYER.baseMaxSpeed,
     damage: BULLET.baseDamage,
     fireCooldownMs: BULLET.cooldownMs,
     lastFireAt: 0,
@@ -115,14 +116,15 @@ export const processInputs = (world: World, now: number) => {
         p.vy = 0;
 
         // Reset stats fully
-        p.maxHp = PLAYER.baseHP + (p.isGiant ? 200 : 0);
-        p.accel = PLAYER.baseAccel;
-        p.maxSpeed = PLAYER.baseMaxSpeed;
+        p.maxHp = PLAYER.baseHP + (p.isGiant ? 175 : 0);
+        p.accel = p.isGiant ? PLAYER.baseAccel * 0.8 : PLAYER.baseAccel;
+        p.maxSpeed = p.isGiant ? PLAYER.baseMaxSpeed * 0.85 : PLAYER.baseMaxSpeed;
         p.damage = BULLET.baseDamage;
         p.fireCooldownMs = BULLET.cooldownMs;
         p.shield = 0;
         p.magnetRadius = PICKUPS.magnetBaseRadius;
         p.xp = 0;
+        p.score = 0;
         p.level = 1;
         p.xpToNext = xpForLevel(2);
         p.powerupLevels = { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Wings: 0 };
@@ -138,7 +140,7 @@ export const processInputs = (world: World, now: number) => {
 
       p.aim = f.aim;
       // Make movement more floaty: reduce acceleration for bots
-      let accelMult = p.socketId ? 1.0 : 0.6;
+      let accelMult = p.socketId ? 1.0 : 0.7;
 
       let floatyAccel = p.accel * accelMult;
 
@@ -157,8 +159,8 @@ export const processInputs = (world: World, now: number) => {
 
       // Regen Wings logic
       if (p.specialVariants.includes('Regen Wings') && p.hp > 0 && p.hp < p.maxHp) {
-        if (now - (p.lastDamageTakenAt || 0) > 3000) {
-          p.hp = Math.min(p.maxHp, p.hp + 5 * (f.dtMs / 1000));
+        if (now - (p.lastDamageTakenAt || 0) > 2000) {
+          p.hp = Math.min(p.maxHp, p.hp + 7 * (f.dtMs / 1000));
         }
       }
 
@@ -176,7 +178,8 @@ export const updatePlayerRadius = (p: Player) => {
   const hullLevel = p.powerupLevels.Hull || 0;
   const engineLevel = p.powerupLevels.Engine || 0;
   const wingsLevel = p.powerupLevels.Wings || 0;
-  p.r = PLAYER.radius * giantMultiplier * (1 + 0.15 * hullLevel + 0.05 * engineLevel + 0.03 * wingsLevel);
+  const levelMultiplier = p.level >= 15 ? 1.1 : 1.0;
+  p.r = PLAYER.radius * giantMultiplier * levelMultiplier * (1 + 0.15 * hullLevel + 0.05 * engineLevel + 0.03 * wingsLevel);
 };
 export const levelUp = (world: World, playerId: string) => {
   const player = world.players.get(playerId);
@@ -188,7 +191,10 @@ export const levelUp = (world: World, playerId: string) => {
   player.xp = 0; // Reset XP for next level
   player.xpToNext = xpForLevel(player.level + 1);
   if (player.level === 10) {
-    player.maxSpeed = Math.max(50, player.maxSpeed - 50);
+    if (!player.isGiant) {
+      player.maxHp += 50;
+      player.hp += 50;
+    }
   } else if (player.level === 15) {
     player.maxSpeed = Math.max(50, player.maxSpeed - 80);
   }
@@ -205,10 +211,19 @@ export const giveXP = (world: World, p: Player, value: number) => {
     p.xp -= p.xpToNext;
     p.xpToNext = xpForLevel(p.level + 1);
     p.pendingOffersCount = (p.pendingOffersCount || 0) + 1;
-    if (p.level === 10) {
-      p.maxSpeed = Math.max(50, p.maxSpeed - 50);
+    if (p.level === 9) {
+      p.maxSpeed = Math.max(50, p.maxSpeed - 25);
+    } else if (p.level === 10) {
+      if (!p.isGiant) {
+        p.maxHp += 50;
+        p.hp += 50;
+      }
+    } else if (p.level === 13) {
+      p.maxSpeed = Math.max(50, p.maxSpeed - 25);
     } else if (p.level === 15) {
-      p.maxSpeed = Math.max(50, p.maxSpeed - 80);
+      p.maxSpeed = Math.max(50, p.maxSpeed - 30);
+    } else if (p.level === 19) {
+      p.maxSpeed = Math.max(50, p.maxSpeed - 50);
     }
     leveledUp = true;
   }
@@ -267,10 +282,10 @@ export const applyLevelChoice = (
       if (choice.special === "Bumper Body" && !p.socketId) {
         p.accel += 80;
       } else if (choice.special === "Laser Beam") {
-        p.fireCooldownMs += 120;
+        p.fireCooldownMs += 140;
         p.damage *= 2.5; // significantly increase damage since it no longer multi-hits
       } else if (choice.special === "Plasma Cannon") {
-        p.fireCooldownMs += 610;
+        p.fireCooldownMs += 640;
         // retroactively boost fire rate upgrades by 2x more (so total is 3x)
         const pastLvls = p.powerupLevels.FireRate;
         if (pastLvls > 0) {
@@ -281,7 +296,7 @@ export const applyLevelChoice = (
           if (pastLvls >= 4) retroactiveBonus += 10 * 1;
           p.fireCooldownMs -= retroactiveBonus;
         }
-        p.damage *= 4;
+        p.damage *= 3.6;
       }
     }
   } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
@@ -380,7 +395,7 @@ const rollChoices = (p: Player, specificLevel?: number): PowerupChoice[] => {
     const hasLaser = p.specialVariants.includes("Laser Beam");
     const hasPlasma = p.specialVariants.includes("Plasma Cannon");
     const allSpecials: PowerupChoice[] = [
-      { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "Regen 5 HP/s out of combat" },
+      { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "Regen 7 HP/s out of combat" },
       { family: "Special", special: "Zero gravity", label: "Zero gravity", desc: "No damage/collision from planets/gravity" },
       { family: "Special", special: "Bumper Body", label: "Bumper Body", desc: "Damage and push other ships away heavily" },
       { family: "Special", special: "Twin Weapon", label: "Twin Weapon", desc: "Shoot two bullets side-by-side" },
@@ -579,9 +594,10 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
   let currentLifetime = BULLET.lifetimeMs;
   if (hasLaser) {
     currentSpeed = BULLET.speed * 1.6;
+    currentLifetime = BULLET.lifetimeMs * 0.75;
   } else if (hasPlasma) {
     currentSpeed = 700; // Fixed speed for plasma, decoupled from ship maxSpeed
-    currentLifetime = 1500; // Decreased lifetime for plasma
+    currentLifetime = 1000; // Decreased lifetime for plasma
   }
 
   if (hasTwin) {

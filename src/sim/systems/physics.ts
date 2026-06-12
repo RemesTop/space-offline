@@ -18,7 +18,7 @@ export const triggerPlasmaExplosion = (world: World, b: Bullet, now: number, exc
       otherP.vy += ny * 150;
       if (otherP.id !== excludeId) {
         const prevOtherHp = otherP.hp;
-        otherP.hp -= b.damage * 4.0; // splash damage
+        otherP.hp -= b.damage * 1.0; // splash damage
         otherP.lastDamageTakenAt = now;
         if (prevOtherHp > 0 && otherP.hp <= 0) {
           otherP.deadUntil = now + (otherP.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 45000);
@@ -35,7 +35,9 @@ export const triggerPlasmaExplosion = (world: World, b: Bullet, now: number, exc
           const owner = world.players.get(b.ownerId);
           if (owner) {
             owner.kills = (owner.kills || 0) + 1;
-            owner.xp += Math.max(10, otherP.xp * 0.5);
+            const xpGain = Math.max(10, otherP.xp * 0.5);
+            owner.xp += xpGain;
+            owner.score += xpGain;
           }
         }
       }

@@ -66,7 +66,16 @@ const BOT_NAMES = [
   "Serverihiiri"
 ];
 
-export const getRandomBotName = () => BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+const GIANT_PREFIXES = ["Big", "Senior", "Angry", "Crazy", "Drunk", "1337", "AI", "lil", "Ahne", "kirottu", "Pahis", "Evil", "Psycho", "Titan", "Se", "damn", "pro", "OP", "hitsin", "god", "anti"];
+
+export const getRandomBotName = (isGiant?: boolean) => {
+  const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  if (isGiant) {
+    const prefix = GIANT_PREFIXES[Math.floor(Math.random() * GIANT_PREFIXES.length)];
+    return `${prefix} ${name}`;
+  }
+  return name;
+};
 
 export type BotPersonality = "Aggressive" | "Cowardly" | "Scavenger" | "Balanced" | "Pro";
 
@@ -81,6 +90,8 @@ export type Bot = {
   currentAim: number; // current aim angle
   personality: BotPersonality;
   decelUntil?: number; // timestamp to stop decelerating
+  isTargetingPickup?: boolean;
+  isAttacking?: boolean;
 };
 
 const bots = new Map<string, Bot>();
@@ -93,61 +104,14 @@ export const spawnBot = (world: World): void => {
 
   // Use empty socketId for bots - they don't have real sockets
   const player = addPlayer(world, botId, spawn, "");
+  player.name = getRandomBotName(player.isGiant);
 
-  let maxPlayerLevel = 0;
-  for (const p of world.players.values()) {
-    if (p.socketId && p.level > maxPlayerLevel) {
-      maxPlayerLevel = p.level;
-    }
-  }
-
-  const targetLevel = Math.max(1, maxPlayerLevel > 8 ? maxPlayerLevel - 8 + Math.floor(Math.random() * 5) : 1);
-  player.level = targetLevel;
-  player.xp = 0; // reset xp
-
-  if (targetLevel > 1) {
-    if (player.isGiant) {
-      player.maxHp += (targetLevel - 1) * 30;
-      player.hp = player.maxHp;
-    } else {
-      player.maxHp += (targetLevel - 1) * 15;
-      player.hp = player.maxHp;
-    }
-
-    // Give them an appropriate number of upgrades
-    const numUpgrades = targetLevel - 1;
-    for (let i = 0; i < numUpgrades; i++) {
-      const upgradeRnd = Math.random();
-      if (upgradeRnd < 0.25 && player.powerupLevels.Damage < 4) {
-        player.powerupLevels.Damage++;
-        player.damage += 2;
-      } else if (upgradeRnd < 0.5 && player.powerupLevels.Engine < 4) {
-        player.powerupLevels.Engine++;
-        player.maxSpeed += 40;
-        player.accel += 80;
-      } else if (upgradeRnd < 0.75 && player.powerupLevels.FireRate < 4) {
-        player.powerupLevels.FireRate++;
-        player.fireCooldownMs = Math.max(100, player.fireCooldownMs - 15);
-      } else if (player.powerupLevels.Hull < 4) {
-        player.powerupLevels.Hull++;
-        player.maxHp += 20;
-        player.hp += 20;
-      } else if (player.powerupLevels.Wings < 4) {
-        player.powerupLevels.Wings++;
-      }
-    }
-  }
   player.invulnUntil = performance.now() + 3000;
 
-  // Give bot a random name
-  const botName = getRandomBotName();
-  player.name = botName;
+
 
   const personalities: BotPersonality[] = ["Aggressive", "Pro", "Scavenger", "Balanced"];
   let personality = personalities[Math.floor(Math.random() * personalities.length)];
-  if (player.isGiant) {
-    personality = "Aggressive";
-  }
 
   let aggressiveness = Math.random() * 0.8 + 0.2;
   let aimOffset = (Math.random() - 0.5) * 0.3;
@@ -175,7 +139,7 @@ export const spawnBot = (world: World): void => {
   };
 
   bots.set(botId, bot);
-  console.log(`[bots] spawned bot: ${botName}`);
+  console.log(`[bots] spawned bot: ${player.name}`);
 };
 
 export const updateBots = (world: World, now: number): void => {
@@ -308,6 +272,9 @@ export const updateBots = (world: World, now: number): void => {
       let desiredDx = 0;
       let desiredDy = 0;
 
+      bot.isAttacking = false;
+      bot.isTargetingPickup = false;
+
       if (isLowHealth && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500) {
         // Flee from nearest player
         const target = nearbyPlayers[0].player;
@@ -315,7 +282,8 @@ export const updateBots = (world: World, now: number): void => {
         const fleeDy = player.y - target.y;
 
         // Add strafing to fleeing
-        const strafeDir = Math.random() > 0.5 ? 1 : -1;
+        const hash = player.id.charCodeAt(0) || 0;
+        const strafeDir = Math.sin(now / 800 + hash) > 0 ? 1 : -1;
         const strafeX = -fleeDy * strafeDir * 0.7;
         const strafeY = fleeDx * strafeDir * 0.7;
 
@@ -331,14 +299,18 @@ export const updateBots = (world: World, now: number): void => {
           desiredDx = 0;
           desiredDy = 0;
         }
+        bot.isTargetingPickup = false;
       } else if (prioritizedHpPickup) {
         const target = nearbyPickups[0].pickup;
         desiredDx = target.x - player.x;
         desiredDy = target.y - player.y;
+        bot.isTargetingPickup = true;
       } else if (nearbyPlayers.length > 0 && Math.random() < bot.aggressiveness && !isLowHealth) {
         const target = nearbyPlayers[0].player;
         desiredDx = target.x - player.x;
         desiredDy = target.y - player.y;
+        bot.isTargetingPickup = false;
+        bot.isAttacking = true;
 
         const targetAim = Math.atan2(desiredDy, desiredDx);
         let aimDiff = targetAim - bot.currentAim;
@@ -347,10 +319,18 @@ export const updateBots = (world: World, now: number): void => {
 
         const fireRange = bot.personality === "Pro" ? 400 : 250;
         bot.shouldFire = nearbyPlayers[0].dist < fireRange && Math.abs(aimDiff) <= Math.PI / 3;
+
+        if (player.specialVariants.includes("Bullet hell") && nearbyPlayers[0].dist < fireRange) {
+          if (Math.abs(aimDiff) >= Math.PI * 0.66) { // target is behind
+            bot.shouldFire = true;
+          }
+        }
+        bot.isTargetingPickup = false;
       } else if (nearbyPickups.length > 0) {
         const target = nearbyPickups[0].pickup;
         desiredDx = target.x - player.x;
         desiredDy = target.y - player.y;
+        bot.isTargetingPickup = true;
       } else {
         const centerX = world.w / 2;
         const centerY = world.h / 2;
@@ -363,6 +343,7 @@ export const updateBots = (world: World, now: number): void => {
           desiredDx = rndRange(-200, 200);
           desiredDy = rndRange(-200, 200);
         }
+        bot.isTargetingPickup = false;
       }
 
       // Normalize objective vector to standard distance (e.g., 300) so it blends well with avoidance
@@ -414,7 +395,11 @@ export const updateBots = (world: World, now: number): void => {
     while (bot.currentAim < -Math.PI) bot.currentAim += Math.PI * 2;
 
     let thrust = { x: 0, y: 0 };
-    if (dist > 30 && Math.abs(aimDiff) < Math.PI / 3) {
+    const hasBumper = player.specialVariants?.includes("Bumper Body");
+    const stopDist = bot.isTargetingPickup ? 120 + player.maxSpeed * 0.15 : (bot.isAttacking && !hasBumper ? 300 : 30);
+    const requiredAim = bot.isTargetingPickup ? Math.PI / 8 : Math.PI / 3;
+
+    if (dist > stopDist && Math.abs(aimDiff) < requiredAim) {
       thrust.x = Math.cos(bot.currentAim);
       thrust.y = Math.sin(bot.currentAim);
     }

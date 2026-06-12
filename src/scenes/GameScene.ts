@@ -777,7 +777,7 @@ export default class GameScene extends Phaser.Scene {
         playerIds.add(e.id);
         if (!this.ships.has(e.id)) {
           const ship = new Ship(this, { scale: 0.03, ringRadius: 18, showNose: true });
-          const tint = e.id === you?.id ? SELF_TINT : (e.isGiant ? 0x88ccff : OTHER_TINT);
+          const tint = e.id === you?.id ? SELF_TINT : (e.isGiant ? 0xddffff : OTHER_TINT);
           ship.setTint(tint);
           this.ships.set(e.id, ship);
         }
@@ -959,7 +959,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Damage feedback effect
         if (ship.lastHp !== undefined && e.hp !== undefined && e.hp < ship.lastHp && e.hp > 0) {
-          ship.playHitEffect();
+          ship.playHitEffect(e.isGiant ? 0xff0000 : 0xffffff);
         }
         ship.lastHp = e.hp;
 
@@ -980,7 +980,7 @@ export default class GameScene extends Phaser.Scene {
             ship.nameTag.setFontStyle("bold");
             ship.nameTag.setStroke("#000000", 4);
           } else {
-            ship.nameTag.setFontStyle("normal");
+            ship.nameTag.setFontStyle("bold");
             ship.nameTag.setStroke("#000000", 3);
           }
         }
