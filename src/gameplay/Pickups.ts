@@ -32,7 +32,7 @@ export default class Pickups {
       if (!this.byId.has(id)) {
         const container = this.scene.add.container(0, 0).setDepth(2);
         const particles: StardustParticle[] = [];
-        const count = type === "xp-giant" ? 12 : 9; // many more particles for giant
+        const count = type === "xp-giant" ? 5 : 3; // Reduced for performance
         const maxRadius = type === "xp-giant" ? 35 : 16;
         for (let i = 0; i < count; i++) {
           const t = Math.pow(Math.random(), 1.2); // slightly less bias for more spread

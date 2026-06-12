@@ -12,8 +12,20 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
     if (!p.deadUntil) {
       spawnDeathPickups(world, p);
       p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 60000);
+      world.events.push({
+        type: "Kill",
+        killerId: null, // unknown killer
+        victimId: p.id,
+        victimScore: p.score,
+        victimLevel: p.level,
+        x: p.x,
+        y: p.y,
+      });
     }
     if (now >= p.deadUntil) {
+      // Do not auto-respawn humans, they must click the respawn button
+      if (p.socketId) continue;
+
       const pos = randEdgeSpawn(world);
       p.x = pos.x;
       p.y = pos.y;

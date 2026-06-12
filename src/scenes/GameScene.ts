@@ -516,6 +516,44 @@ export default class GameScene extends Phaser.Scene {
             }
           }
         }
+      } else if (e.type === 'PlasmaHit') {
+        const youI = this.interp.get(this.net.youId || "");
+        if (youI || this.lastYouI) {
+          const basePos = youI || this.lastYouI;
+          const cx = this.scale.width / 2;
+          const cy = this.scale.height / 2;
+          const sx = cx + (e.x - basePos.x);
+          const sy = cy + (e.y - basePos.y);
+          
+          const container = this.add.container(sx, sy).setDepth(1000);
+          
+          const blastParams = { scale: 1.5, alpha: 0.8, color: 0xff44ff };
+          
+          const blast = this.add.circle(0, 0, 100, blastParams.color, blastParams.alpha);
+          blast.setBlendMode(Phaser.BlendModes.ADD);
+          container.add(blast);
+          
+          const innerBlast = this.add.circle(0, 0, 50, 0xffffff, 1);
+          innerBlast.setBlendMode(Phaser.BlendModes.ADD);
+          container.add(innerBlast);
+
+          this.tweens.add({
+            targets: [blast, innerBlast],
+            scale: blastParams.scale,
+            alpha: 0,
+            duration: 300,
+            ease: 'Cubic.easeOut',
+            onComplete: () => {
+              container.destroy();
+            }
+          });
+
+          const dist = Math.hypot(e.x - basePos.x, e.y - basePos.y);
+          if (dist < 1500) {
+            const vol = Math.max(0.01, 1 - dist / 1500) * 0.6;
+            this.playSynthSound("plasma_explosion", vol);
+          }
+        }
       } else if (e.type === 'BumperHit') {
         const youI = this.interp.get(this.net.youId || "");
         if (youI) {
@@ -574,7 +612,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  playSynthSound(type: "shoot" | "death", volumeScale = 1.0) {
+  playSynthSound(type: "shoot" | "death" | "laser" | "plasma" | "plasma_explosion", volumeScale = 1.0) {
     if (!this.audioCtx) return;
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
     const t = this.audioCtx.currentTime;
@@ -585,7 +623,15 @@ export default class GameScene extends Phaser.Scene {
     
     const globalVol = this.sound.volume ?? 1.0;
 
-    if (type === "shoot") {
+    if (type === "plasma_explosion") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(150, t);
+      osc.frequency.exponentialRampToValueAtTime(30, t + 0.4);
+      gain.gain.setValueAtTime(0.4 * volumeScale * globalVol, t);
+      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale * globalVol, t + 0.4);
+      osc.start(t);
+      osc.stop(t + 0.4);
+    } else if (type === "shoot") {
       osc.type = "square";
       osc.frequency.setValueAtTime(400, t);
       osc.frequency.exponentialRampToValueAtTime(100, t + 0.1);
@@ -593,6 +639,22 @@ export default class GameScene extends Phaser.Scene {
       gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale * globalVol, t + 0.1);
       osc.start(t);
       osc.stop(t + 0.1);
+    } else if (type === "laser") {
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(800, t);
+      osc.frequency.exponentialRampToValueAtTime(200, t + 0.15);
+      gain.gain.setValueAtTime(0.15 * volumeScale * globalVol, t);
+      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale * globalVol, t + 0.15);
+      osc.start(t);
+      osc.stop(t + 0.15);
+    } else if (type === "plasma") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(300, t);
+      osc.frequency.linearRampToValueAtTime(100, t + 0.15);
+      gain.gain.setValueAtTime(0.2 * volumeScale * globalVol, t);
+      gain.gain.exponentialRampToValueAtTime(0.01 * volumeScale * globalVol, t + 0.15);
+      osc.start(t);
+      osc.stop(t + 0.15);
     } else {
       osc.type = "sawtooth";
       osc.frequency.setValueAtTime(100, t);
@@ -681,7 +743,7 @@ export default class GameScene extends Phaser.Scene {
 
     for (const e of s.entities) {
       if (e.kind === "bullet") {
-        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy, (e as any).isLaser, (e as any).isRedLaser); // Pass velocity, isLaser, and isRedLaser
+        const isNew = this.bullets.ensure(e.id, e.r, e.vx, e.vy, (e as any).isLaser, (e as any).isRedLaser, (e as any).isPlasma); // Pass velocity, isLaser, isRedLaser, isPlasma
         if (isNew && e.ownerId !== this.net.youId && !this.gameEnded) {
           const dist = Math.hypot(e.x - youX, e.y - youY);
           if (dist < 1000) {
@@ -714,7 +776,7 @@ export default class GameScene extends Phaser.Scene {
         playerIds.add(e.id);
         if (!this.ships.has(e.id)) {
           const ship = new Ship(this, { scale: 0.03, ringRadius: 18, showNose: true });
-          const tint = e.id === you.id ? SELF_TINT : (e.isGiant ? 0xb388ff : OTHER_TINT);
+          const tint = e.id === you?.id ? SELF_TINT : (e.isGiant ? 0x88ccff : OTHER_TINT);
           ship.setTint(tint);
           this.ships.set(e.id, ship);
         }
@@ -838,7 +900,9 @@ export default class GameScene extends Phaser.Scene {
     if (this.fireHeld && !this.gameEnded && youState) {
       const cooldown = (youState as any)?.fireCooldownMs || 220;
       if (currentNow - this.lastShootSound >= cooldown) {
-        this.playSynthSound("shoot", 1.0);
+        const specials = (youState as any)?.specialVariants || [];
+        const soundType = specials.includes("Plasma Cannon") ? "plasma" : (specials.includes("Laser Beam") ? "laser" : "shoot");
+        this.playSynthSound(soundType, 1.0);
         this.lastShootSound = currentNow;
       }
     } else {
@@ -848,7 +912,7 @@ export default class GameScene extends Phaser.Scene {
     // Send input at ~40 Hz
     const dtMs = delta;
     const now = performance.now();
-    if (now - this.lastInputAt > 1000 / 40 && this.net.youId) {
+    if (now - this.lastInputAt > 1000 / 40 && this.net.youId && !this.gameEnded) {
       const payload = {
         id: this.net.youId!,
         seq: ++this.seq,
@@ -865,6 +929,12 @@ export default class GameScene extends Phaser.Scene {
     // Interpolated "you" for smooth rendering/camera base
     let youI =
       this.interp.get(this.net.youId || "") ?? this.interp.current.get(this.net.youId || "");
+
+    if (youI) {
+      this.lastYouI = { ...youI };
+    } else if (this.lastYouI) {
+      youI = this.lastYouI;
+    }
 
     if (youI) {
       // Update distance & max speed (only while game active)
@@ -940,11 +1010,13 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // Handle invulnerability blinking
-        if ((e as any).isInvuln) {
-          const alpha = (Date.now() % 200 < 100) ? 0.3 : 0.8;
-          ship.setAlpha(alpha);
-        } else {
-          ship.setAlpha(1);
+        if (!this.dyingShips.has(id)) {
+          if ((e as any).isInvuln) {
+            const alpha = (Date.now() % 200 < 100) ? 0.3 : 0.8;
+            ship.setAlpha(alpha);
+          } else {
+            ship.setAlpha(1);
+          }
         }
       }
 
@@ -955,11 +1027,13 @@ export default class GameScene extends Phaser.Scene {
         myShip2.setRotation(this.heading);
         
         // Handle invulnerability blinking for your own ship
-        if ((youI as any).isInvuln) {
-          const alpha = (Date.now() % 200 < 100) ? 0.3 : 0.8;
-          myShip2.setAlpha(alpha);
-        } else {
-          myShip2.setAlpha(1);
+        if (!this.dyingShips.has(this.net.youId!)) {
+          if ((youI as any).isInvuln) {
+            const alpha = (Date.now() % 200 < 100) ? 0.3 : 0.8;
+            myShip2.setAlpha(alpha);
+          } else {
+            myShip2.setAlpha(1);
+          }
         }
       }
 

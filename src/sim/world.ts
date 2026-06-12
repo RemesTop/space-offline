@@ -15,6 +15,7 @@ export type World = {
   bullets: Map<string, Bullet>;
   pickups: Map<string, Pickup>;
   rocks: Map<string, Rock>;
+  events: any[];
   io?: LocalEmitter;
   awaitingFirstHuman: boolean; // paused state until a human connects
 };
@@ -85,6 +86,7 @@ export type Bullet = {
   pierce: boolean;
   isLaser?: boolean;
   isRedLaser?: boolean;
+  isPlasma?: boolean;
   hitTargets?: Set<string>;
 };
 
@@ -119,6 +121,7 @@ export const createWorld = (): World => {
     bullets: new Map(),
     pickups: new Map(),
     rocks: new Map(),
+    events: [],
     awaitingFirstHuman: true,
   };
 };

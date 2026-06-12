@@ -46,9 +46,7 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
 
         // Emit BumperHit event to players
         const hitEvent = { type: "BumperHit" as const, x: p1.x + nx * (overlap * 0.5), y: p1.y + ny * (overlap * 0.5) };
-        for (const p of world.players.values()) {
-          if (p.socketId) world.io?.emitEvent(p.socketId, hitEvent);
-        }
+        world.events.push(hitEvent);
 
         // Add velocity kick to bounce them off slightly
         const vDotN = p1.vx * nx + p1.vy * ny;
@@ -73,19 +71,15 @@ export const handlePlayerCollisions = (world: World, dt: number): void => {
             victim.lastDamageTakenAt = now;
             if (prevHp > 0 && victim.hp <= 0) {
               victim.deadUntil = now + (victim.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 45000);
-              for (const p of world.players.values()) {
-                if (p.socketId) {
-                  world.io?.emitEvent(p.socketId, {
-                    type: "Kill",
-                    killerId: attacker.id,
-                    victimId: victim.id,
-                    victimScore: victim.score,
-                    victimLevel: victim.level,
-                    x: victim.x,
-                    y: victim.y,
-                  });
-                }
-              }
+                world.events.push({
+                  type: "Kill",
+                  killerId: attacker.id,
+                  victimId: victim.id,
+                  victimScore: victim.score,
+                  victimLevel: victim.level,
+                  x: victim.x,
+                  y: victim.y,
+                });
               spawnDeathPickups(world, victim);
             }
           }

@@ -3,6 +3,7 @@ import type { World } from "../world.js";
 import { rndRange } from "@shared/math.js";
 import { spawnDeathPickups } from "./deathDrops.js";
 import { PLAYER } from "@shared/constants.js";
+import { triggerPlasmaExplosion } from "./physics.js";
 
 let rockSpawnAccumulator = 3000;
 
@@ -81,9 +82,7 @@ export const handleRockCollisions = (world: World, now: number) => {
           }
 
           // Emit BumperHit event
-          if (p.socketId) {
-            world.io?.emitEvent(p.socketId, { type: "BumperHit" as const, x: p.x - nx * r.r, y: p.y - ny * r.r });
-          }
+          world.events.push({ type: "BumperHit" as const, x: p.x - nx * r.r, y: p.y - ny * r.r }); 
         } else {
           // Normal Bounce player
           const vDotN = p.vx * nx + p.vy * ny;
@@ -105,17 +104,15 @@ export const handleRockCollisions = (world: World, now: number) => {
             p.hp -= 20;
             if (prevHp > 0 && p.hp <= 0) {
               p.deadUntil = now + PLAYER.respawnDelayMs;
-              if (p.socketId) {
-                world.io?.emitEvent(p.socketId, {
-                  type: "Kill",
-                  killerId: null,
-                  victimId: p.id,
-                  victimScore: p.score,
-                  victimLevel: p.level,
-                  x: p.x,
-                  y: p.y,
-                });
-              }
+              world.events.push({
+                type: "Kill",
+                killerId: null,
+                victimId: p.id,
+                victimScore: p.score,
+                victimLevel: p.level,
+                x: p.x,
+                y: p.y,
+              });
               spawnDeathPickups(world, p);
             }
           }
@@ -134,6 +131,9 @@ export const handleRockCollisions = (world: World, now: number) => {
       const d2 = dx*dx + dy*dy;
       const rad = b.r + r.r;
       if (d2 < rad*rad) {
+        if (b.isPlasma) {
+          triggerPlasmaExplosion(world, b, now);
+        }
         bulletsToRemove.push(b.id);
         break; // Only remove bullet once
       }

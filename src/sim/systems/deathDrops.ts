@@ -51,7 +51,7 @@ export function spawnDeathPickups(world: World, player: Player) {
       x: cx,
       y: cy,
       r: 10,
-      value: 20, // Health restore amount
+      value: 50, // Health restore amount
       createdAt: Date.now(),
     });
   }

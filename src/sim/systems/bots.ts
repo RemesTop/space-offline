@@ -235,7 +235,7 @@ export const updateBots = (world: World, now: number): void => {
           pickup: p,
           dist: Math.hypot(p.x - player.x, p.y - player.y)
         }))
-        .filter(({ dist }) => dist < pickupSearchRadius)
+        .filter(({ dist, pickup }) => dist < pickupSearchRadius && (pickup.type !== "hp" || player.hp < player.maxHp))
         .sort((a, b) => {
           const inFight = bot.personality === "Pro" && nearbyPlayers.length > 0 && nearbyPlayers[0].dist < 500;
           if (player.hp < player.maxHp * 0.5 || inFight) {

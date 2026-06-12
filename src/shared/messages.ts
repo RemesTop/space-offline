@@ -78,6 +78,7 @@ export const ServerSnapshotSchema = z.object({
       isGiant: z.boolean().optional(),
       specialVariants: z.array(z.string()).optional(),
       isLaser: z.boolean().optional(),
+      isPlasma: z.boolean().optional(),
     }),
   ),
   pickups: z.array(
@@ -125,6 +126,11 @@ export const ServerEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("BumperHit"),
+    x: z.number(),
+    y: z.number(),
+  }),
+  z.object({
+    type: z.literal("PlasmaHit"),
     x: z.number(),
     y: z.number(),
   }),

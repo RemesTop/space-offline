@@ -1,7 +1,48 @@
-import type { World } from "../world.js";
+import type { Bullet, World } from "../world.js";
 import { GRAVITY, PLAYER } from "@shared/constants.js";
 import { dist2 } from "@shared/math.js";
 import { spawnDeathPickups } from "./deathDrops.js";
+
+export const triggerPlasmaExplosion = (world: World, b: Bullet, now: number, excludeId?: string) => {
+  const bumpDist = 45;
+  const blastRadius = 120;
+  for (const otherP of world.players.values()) {
+    if (otherP.hp <= 0 || otherP.id === b.ownerId) continue;
+    const dist = Math.hypot(otherP.x - b.x, otherP.y - b.y);
+    if (dist < blastRadius) {
+      const nx = (otherP.x - b.x) / (dist || 1);
+      const ny = (otherP.y - b.y) / (dist || 1);
+      otherP.x += nx * bumpDist;
+      otherP.y += ny * bumpDist;
+      otherP.vx += nx * 150;
+      otherP.vy += ny * 150;
+      if (otherP.id !== excludeId) {
+        const prevOtherHp = otherP.hp;
+        otherP.hp -= b.damage * 4.0; // splash damage
+        otherP.lastDamageTakenAt = now;
+        if (prevOtherHp > 0 && otherP.hp <= 0) {
+          otherP.deadUntil = now + (otherP.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 45000);
+          world.events.push({
+            type: "Kill",
+            killerId: b.ownerId,
+            victimId: otherP.id,
+            victimScore: otherP.score,
+            victimLevel: otherP.level,
+            x: otherP.x,
+            y: otherP.y,
+          });
+          spawnDeathPickups(world, otherP);
+          const owner = world.players.get(b.ownerId);
+          if (owner) {
+            owner.kills = (owner.kills || 0) + 1;
+            owner.xp += Math.max(10, otherP.xp * 0.5);
+          }
+        }
+      }
+    }
+  }
+  world.events.push({ type: "PlasmaHit", x: b.x, y: b.y });
+};
 
 export const applyGravity = (world: World, dt: number) => {
   for (const p of world.players.values()) {
@@ -26,19 +67,15 @@ export const applyGravity = (world: World, dt: number) => {
         p.lastDamageTakenAt = performance.now();
         if (prevHp > 0 && p.hp <= 0) {
           p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
-          for (const player of world.players.values()) {
-            if (player.socketId) {
-              world.io?.emitEvent(player.socketId, {
-                type: "Kill",
-                killerId: null, // Environmental death
-                victimId: p.id,
-                victimScore: p.score,
-                victimLevel: p.level,
-                x: p.x,
-                y: p.y,
-              });
-            }
-          }
+          world.events.push({
+            type: "Kill",
+            killerId: null, // Environmental death
+            victimId: p.id,
+            victimScore: p.score,
+            victimLevel: p.level,
+            x: p.x,
+            y: p.y,
+          });
           spawnDeathPickups(world, p);
         }
       }
@@ -65,19 +102,15 @@ export const applyGravity = (world: World, dt: number) => {
             p.lastDamageTakenAt = performance.now();
             if (prevHp > 0 && p.hp <= 0) {
               p.deadUntil = performance.now() + (p.socketId ? PLAYER.respawnDelayMs : Math.random() * 45000);
-              for (const player of world.players.values()) {
-                if (player.socketId) {
-                  world.io?.emitEvent(player.socketId, {
-                    type: "Kill",
-                    killerId: null,
-                    victimId: p.id,
-                    victimScore: p.score,
-                    victimLevel: p.level,
-                    x: p.x,
-                    y: p.y,
-                  });
-                }
-              }
+              world.events.push({
+                type: "Kill",
+                killerId: null,
+                victimId: p.id,
+                victimScore: p.score,
+                victimLevel: p.level,
+                x: p.x,
+                y: p.y,
+              });
               spawnDeathPickups(world, p);
             }
           }
@@ -124,11 +157,7 @@ export const applyGravity = (world: World, dt: number) => {
   for (const rock of rocksToDelete) {
     world.rocks.delete(rock.id);
     // Emit BumperHit animation to all real players
-    for (const p of world.players.values()) {
-      if (p.socketId) {
-        world.io?.emitEvent(p.socketId, { type: "BumperHit" as const, x: rock.x, y: rock.y });
-      }
-    }
+    world.events.push({ type: "BumperHit" as const, x: rock.x, y: rock.y });
   }
 };
 
@@ -183,6 +212,9 @@ export const bulletHits = (world: World, dt: number, now: number) => {
   for (const b of world.bullets.values()) {
     b.ttl -= dt * 1000;
     if (b.ttl <= 0) {
+      if (b.isPlasma) {
+        triggerPlasmaExplosion(world, b, now);
+      }
       toRemove.push(b.id);
       continue;
     }
@@ -226,24 +258,28 @@ export const bulletHits = (world: World, dt: number, now: number) => {
         const prevHp = p.hp;
         p.hp -= b.damage;
         p.lastDamageTakenAt = now;
-        if (!b.pierce) toRemove.push(b.id);
+
+        if (b.isPlasma) {
+          triggerPlasmaExplosion(world, b, now, p.id);
+        }
+
         if (prevHp > 0 && p.hp <= 0) {
           p.deadUntil = now + (p.socketId ? PLAYER.respawnDelayMs : 2000 + Math.random() * 45000);
           // Emit kill event for explosion effect to everyone
-          for (const player of world.players.values()) {
-            if (player.socketId) {
-              world.io?.emitEvent(player.socketId, {
-                type: "Kill",
-                killerId: b.ownerId,
-                victimId: p.id,
-                victimScore: p.score,
-                victimLevel: p.level,
-                x: p.x,
-                y: p.y,
-              });
-            }
-          }
+          world.events.push({
+            type: "Kill",
+            killerId: b.ownerId,
+            victimId: p.id,
+            victimScore: p.score,
+            victimLevel: p.level,
+            x: p.x,
+            y: p.y,
+          });
           spawnDeathPickups(world, p);
+        }
+
+        if (!b.pierce) {
+          toRemove.push(b.id);
         }
         break;
       }

@@ -223,12 +223,19 @@ export default class Ship {
     const magnetLvl = powerupLevels?.Magnet || 0;
     const windowLevel = magnetLvl < 1 ? 0 : magnetLvl < 3 ? 1 : 2;
     this.window.setTexture(`raketti/window${windowLevel}.png`);
-    if (specialVariants?.includes('Laser Beam')) this.window.setTexture('raketti/windowspecial.png');
+    if (specialVariants?.includes('Laser Beam')) {
+      this.window.setTexture('raketti/windowspecial.png');
+    } else if (specialVariants?.includes('Plasma Cannon')) {
+      this.window.setTexture('raketti/window2.png');
+    }
     
     if (specialVariants?.includes('Bullet hell')) this.point.setTexture('raketti/pointspecial.png');
 
     // Update tint for thruster in case special variant changed
     this._applyTint(this._originalTint);
+    if (specialVariants?.includes('Plasma Cannon')) {
+      this.window.setTint(0xb388ff);
+    }
 
     // Scale ship based on hull level and giant status
     if (hullLevel !== undefined) {

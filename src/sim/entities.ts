@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { WORLD, PLAYER, BULLET, PICKUPS, POWERUPS, ALT_FIRE } from "@shared/constants.js";
 import { TICK_HZ } from "@shared/constants.js";
 import type { World, Player, Bullet, Pickup } from "./world.js";
+import { randEdgeSpawn } from "./world.js";
 import { clamp, dist2, rndRange } from "@shared/math.js";
 import { ioSnapshot } from "./loop.js";
 import { removeBot } from "./systems/bots.js";
@@ -100,6 +101,41 @@ export const processInputs = (world: World, now: number) => {
   for (const p of world.players.values()) {
     while (p.inputQueue.length) {
       const f = p.inputQueue.shift()!;
+      
+      // If player is dead but timer expired, respawn them when they send input
+      if (p.hp <= 0 && p.deadUntil && now > p.deadUntil) {
+        p.hp = p.maxHp;
+        p.deadUntil = undefined;
+        
+        // Reset position to edge
+        const pos = randEdgeSpawn(world);
+        p.x = pos.x;
+        p.y = pos.y;
+        p.vx = 0;
+        p.vy = 0;
+        
+        // Reset stats fully
+        p.maxHp = PLAYER.baseHP + (p.isGiant ? 200 : 0);
+        p.accel = PLAYER.baseAccel;
+        p.maxSpeed = PLAYER.baseMaxSpeed;
+        p.damage = BULLET.baseDamage;
+        p.fireCooldownMs = BULLET.cooldownMs;
+        p.shield = 0;
+        p.magnetRadius = PICKUPS.magnetBaseRadius;
+        p.xp = 0;
+        p.level = 1;
+        p.xpToNext = xpForLevel(2);
+        p.powerupLevels = { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Wings: 0 };
+        p.specialVariants = [];
+        p.altFire = undefined;
+      }
+
+      // Ignore movement/firing if still dead
+      if (p.hp <= 0) {
+        p.lastAckSeq = Math.max(p.lastAckSeq, f.seq);
+        continue;
+      }
+
       p.aim = f.aim;
       // Make movement more floaty: reduce acceleration for bots
       let accelMult = p.socketId ? 1.0 : 0.6;
@@ -233,6 +269,19 @@ export const applyLevelChoice = (
       } else if (choice.special === "Laser Beam") {
         p.fireCooldownMs += 120;
         p.damage *= 2.5; // significantly increase damage since it no longer multi-hits
+      } else if (choice.special === "Plasma Cannon") {
+        p.fireCooldownMs += 600;
+        // retroactively boost fire rate upgrades by 2x more (so total is 3x)
+        const pastLvls = p.powerupLevels.FireRate;
+        if (pastLvls > 0) {
+          let retroactiveBonus = 0;
+          if (pastLvls >= 1) retroactiveBonus += 15 * 1;
+          if (pastLvls >= 2) retroactiveBonus += 15 * 1;
+          if (pastLvls >= 3) retroactiveBonus += 10 * 1;
+          if (pastLvls >= 4) retroactiveBonus += 10 * 1;
+          p.fireCooldownMs -= retroactiveBonus;
+        }
+        p.damage *= 4;
       }
     }
   } else if (choice.family === "AltFire" && p.level >= 10 && choice.alt) {
@@ -271,12 +320,14 @@ export const applyLevelChoice = (
   } else if (choice.family === "FireRate" && choice.tier) {
     if (p.powerupLevels.FireRate < 4) {
       p.powerupLevels.FireRate++;
+      const isPlasma = p.specialVariants.includes("Plasma Cannon");
+      const multiplier = isPlasma ? 2 : 1;
       if (p.powerupLevels.FireRate > 2) {
         // Lvl 4+ gets -10
-        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 10);
+        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 10 * multiplier);
       } else {
         // Lvl 2 and 3 get -15
-        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 15);
+        p.fireCooldownMs = Math.max(80, p.fireCooldownMs - 15 * multiplier);
       }
     }
   } else if (choice.family === "Magnet" && choice.tier) {
@@ -326,16 +377,24 @@ export const applyLevelChoice = (
 const rollChoices = (p: Player, specificLevel?: number): PowerupChoice[] => {
   const levelToCheck = specificLevel ?? p.level;
   if ([5, 10, 15].includes(levelToCheck)) {
+    const hasLaser = p.specialVariants.includes("Laser Beam");
+    const hasPlasma = p.specialVariants.includes("Plasma Cannon");
     const allSpecials: PowerupChoice[] = [
       { family: "Special", special: "Regen Wings", label: "Regen Wings", desc: "Regen 5 HP/s out of combat" },
       { family: "Special", special: "Zero gravity", label: "Zero gravity", desc: "No damage/collision from planets/gravity" },
       { family: "Special", special: "Bumper Body", label: "Bumper Body", desc: "Damage and push other ships away heavily" },
       { family: "Special", special: "Twin Weapon", label: "Twin Weapon", desc: "Shoot two bullets side-by-side" },
       { family: "Special", special: "Laser Beam", label: "Laser Beam", desc: "Shoot piercing beams" },
+      { family: "Special", special: "Plasma Cannon", label: "Plasma Cannon", desc: "Slow exploding plasma balls" },
       { family: "Special", special: "Bullet hell", label: "Bullet hell", desc: "Shoot bullets forward and backward" },
     ];
-    // Filter out ones already picked
-    const availableSpecials = allSpecials.filter(c => !p.specialVariants.includes(c.special as string));
+    // Filter out ones already picked and handle conflicts
+    const availableSpecials = allSpecials.filter(c => {
+      if (p.specialVariants.includes(c.special as string)) return false;
+      if (c.special === "Laser Beam" && hasPlasma) return false;
+      if (c.special === "Plasma Cannon" && hasLaser) return false;
+      return true;
+    });
 
     // Shuffle
     for (let i = availableSpecials.length - 1; i > 0; i--) {
@@ -444,7 +503,8 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
     pierce = false,
     isLaser = false,
     sideOffset = 0,
-    isRedLaser = false
+    isRedLaser = false,
+    isPlasma = false
   ) => {
     const id = nanoid();
     const vx = Math.cos(aim + angleOffset) * speed;
@@ -467,6 +527,7 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
       pierce,
       isLaser,
       isRedLaser,
+      isPlasma,
     };
     world.bullets.set(id, b);
   };
@@ -504,27 +565,38 @@ export const tryFire = (world: World, p: Player, aim: number, now: number) => {
 
   const hasTwin = p.specialVariants.includes("Twin Weapon");
   const hasLaser = p.specialVariants.includes("Laser Beam");
+  const hasPlasma = p.specialVariants.includes("Plasma Cannon");
   const hasHell = p.specialVariants.includes("Bullet hell");
 
   const cannonOffset = 14;
   const damageLvl = p.powerupLevels.Damage || 0;
-  const scaledRadius = BULLET.radius + damageLvl * 1.5;
+
+  let scaledRadius = BULLET.radius + damageLvl * 1.5;
+  if (hasPlasma) scaledRadius *= 1.5;
+
   const isRedLaser = hasLaser && damageLvl >= 3;
-  const currentSpeed = hasLaser ? BULLET.speed * 1.6 : BULLET.speed;
+  let currentSpeed = BULLET.speed;
+  let currentLifetime = BULLET.lifetimeMs;
+  if (hasLaser) {
+    currentSpeed = BULLET.speed * 1.6;
+  } else if (hasPlasma) {
+    currentSpeed = 700; // Fixed speed for plasma, decoupled from ship maxSpeed
+    currentLifetime = 1500; // Decreased lifetime for plasma
+  }
 
   if (hasTwin) {
-    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, 0.15, hasLaser, hasLaser, cannonOffset, isRedLaser);
-    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, -0.15, hasLaser, hasLaser, -cannonOffset, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, currentLifetime, 0.15, hasLaser, hasLaser, cannonOffset, isRedLaser, hasPlasma);
+    fireBullet(currentSpeed, p.damage, scaledRadius, currentLifetime, -0.15, hasLaser, hasLaser, -cannonOffset, isRedLaser, hasPlasma);
   } else if (p.powerupLevels.FireRate >= 1) {
     p.bulletsFired = (p.bulletsFired || 0) + 1;
     const side = (p.bulletsFired % 2 === 0) ? cannonOffset : -cannonOffset;
-    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, side, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, currentLifetime, 0, hasLaser, hasLaser, side, isRedLaser, hasPlasma);
   } else {
-    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, 0, hasLaser, hasLaser, 0, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, currentLifetime, 0, hasLaser, hasLaser, 0, isRedLaser, hasPlasma);
   }
 
   if (hasHell) {
-    fireBullet(currentSpeed, p.damage, scaledRadius, BULLET.lifetimeMs, Math.PI, hasLaser, hasLaser, 0, isRedLaser);
+    fireBullet(currentSpeed, p.damage, scaledRadius, currentLifetime, Math.PI, hasLaser, hasLaser, 0, isRedLaser, hasPlasma);
   }
 
   p.lastFireAt = now;

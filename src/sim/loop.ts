@@ -117,6 +117,16 @@ function doSimTick(io: LocalEmitter, world: World, dt: number, nowMs: number) {
     // Defer snapshot emission to avoid blocking next physics tick
     setTimeout(() => ioSnapshot(io, world), 0);
   }
+
+  // Dispatch events generated during this tick to all connected players
+  for (const player of world.players.values()) {
+    if (player.socketId) {
+      for (const e of world.events) {
+        io.emitEvent(player.socketId, e);
+      }
+    }
+  }
+  world.events.length = 0;
 }
 
 export const ioSnapshot = (io: LocalEmitter, world: World) => {
@@ -168,6 +178,7 @@ export const ioSnapshot = (io: LocalEmitter, world: World) => {
       pierce: b.pierce,
       isLaser: b.isLaser,
       isRedLaser: b.isRedLaser,
+      isPlasma: b.isPlasma,
     });
   }
 

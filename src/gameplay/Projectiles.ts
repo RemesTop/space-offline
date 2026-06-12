@@ -1,18 +1,20 @@
 import Phaser from "phaser";
 
-type BulletSprite = Phaser.GameObjects.Shape;
+type BulletSprite = Phaser.GameObjects.Shape | Phaser.GameObjects.Image;
 
 interface ProjectileData {
   sprite: BulletSprite;
   vx: number;
   vy: number;
   isBeam?: boolean;
+  isPlasma?: boolean;
 }
 
 export default class Projectiles {
   private byId = new Map<string, ProjectileData>();
   private circlePool: ProjectileData[] = [];
   private rectPool: ProjectileData[] = [];
+  private plasmaPool: ProjectileData[] = [];
 
   constructor(private scene: Phaser.Scene) { }
 
@@ -22,10 +24,21 @@ export default class Projectiles {
 
   // Create sprite if missing (radius can change)
   // Add velocity parameters
-  ensure(id: string, r: number, vx: number, vy: number, isBeam?: boolean, isRedLaser?: boolean): boolean {
+  ensure(id: string, r: number, vx: number, vy: number, isBeam?: boolean, isRedLaser?: boolean, isPlasma?: boolean): boolean {
     let data = this.byId.get(id);
     if (!data) {
-      if (isBeam) {
+      if (isPlasma) {
+        if (this.plasmaPool.length > 0) {
+          data = this.plasmaPool.pop()!;
+          data.vx = vx;
+          data.vy = vy;
+          data.sprite.setVisible(true);
+        } else {
+          const sprite = this.scene.add.circle(0, 0, r, 0xff66ff).setDepth(5);
+          data = { sprite, vx, vy, isPlasma: true };
+        }
+        (data.sprite as Phaser.GameObjects.Arc).setRadius(r);
+      } else if (isBeam) {
         if (this.rectPool.length > 0) {
           data = this.rectPool.pop()!;
           data.vx = vx;
@@ -55,7 +68,9 @@ export default class Projectiles {
       this.byId.set(id, data);
       return true;
     } else {
-      if (!data.isBeam) {
+      if (data.isPlasma) {
+        (data.sprite as Phaser.GameObjects.Image).setDisplaySize(r * 2.5, r * 2.5);
+      } else if (!data.isBeam) {
         (data.sprite as Phaser.GameObjects.Arc).setRadius(r);
       } else {
         (data.sprite as Phaser.GameObjects.Rectangle).setSize(r * 5, 7.5);
@@ -86,12 +101,23 @@ export default class Projectiles {
   removeMissing(currentIds: Set<string>) {
     for (const [id, data] of this.byId) {
       if (!currentIds.has(id)) {
-        data.sprite.setVisible(false);
-        if (data.isBeam) {
-          this.rectPool.push(data);
-        } else {
-          this.circlePool.push(data);
-        }
+        // Fade out instead of instant disappear
+        this.scene.tweens.add({
+          targets: data.sprite,
+          alpha: 0,
+          duration: 100,
+          onComplete: () => {
+            data.sprite.setVisible(false);
+            data.sprite.setAlpha(1); // Reset for pool
+            if (data.isPlasma) {
+              this.plasmaPool.push(data);
+            } else if (data.isBeam) {
+              this.rectPool.push(data);
+            } else {
+              this.circlePool.push(data);
+            }
+          }
+        });
         this.byId.delete(id);
       }
     }
@@ -104,7 +130,9 @@ export default class Projectiles {
     this.byId.clear();
     for (const data of this.circlePool) data.sprite.destroy();
     for (const data of this.rectPool) data.sprite.destroy();
+    for (const data of this.plasmaPool) data.sprite.destroy();
     this.circlePool = [];
     this.rectPool = [];
+    this.plasmaPool = [];
   }
 }
