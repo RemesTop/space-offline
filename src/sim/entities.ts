@@ -105,31 +105,35 @@ export const processInputs = (world: World, now: number) => {
 
       // If player is dead but timer expired, respawn them when they send input
       if (p.hp <= 0 && p.deadUntil && now > p.deadUntil) {
-        p.hp = p.maxHp;
-        p.deadUntil = undefined;
+        if (!p.socketId) {
+          // Bots auto-respawn in combat.ts, so just let them stay dead here
+        } else {
+          p.hp = p.maxHp;
+          p.deadUntil = undefined;
 
-        // Reset position to edge
-        const pos = randEdgeSpawn(world);
-        p.x = pos.x;
-        p.y = pos.y;
-        p.vx = 0;
-        p.vy = 0;
+          // Reset position to edge
+          const pos = randEdgeSpawn(world);
+          p.x = pos.x;
+          p.y = pos.y;
+          p.vx = 0;
+          p.vy = 0;
 
-        // Reset stats fully
-        p.maxHp = PLAYER.baseHP + (p.isGiant ? 175 : 0);
-        p.accel = p.isGiant ? PLAYER.baseAccel * 0.8 : PLAYER.baseAccel;
-        p.maxSpeed = p.isGiant ? PLAYER.baseMaxSpeed * 0.85 : PLAYER.baseMaxSpeed;
-        p.damage = BULLET.baseDamage;
-        p.fireCooldownMs = BULLET.cooldownMs;
-        p.shield = 0;
-        p.magnetRadius = PICKUPS.magnetBaseRadius;
-        p.xp = 0;
-        p.score = 0;
-        p.level = 1;
-        p.xpToNext = xpForLevel(2);
-        p.powerupLevels = { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Wings: 0 };
-        p.specialVariants = [];
-        p.altFire = undefined;
+          // Reset stats fully
+          p.maxHp = PLAYER.baseHP + (p.isGiant ? 175 : 0);
+          p.accel = p.isGiant ? PLAYER.baseAccel * 0.8 : PLAYER.baseAccel;
+          p.maxSpeed = p.isGiant ? PLAYER.baseMaxSpeed * 0.85 : PLAYER.baseMaxSpeed;
+          p.damage = BULLET.baseDamage;
+          p.fireCooldownMs = BULLET.cooldownMs;
+          p.shield = 0;
+          p.magnetRadius = PICKUPS.magnetBaseRadius;
+          p.xp = 0;
+          p.score = 0;
+          p.level = 1;
+          p.xpToNext = xpForLevel(2);
+          p.powerupLevels = { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Wings: 0 };
+          p.specialVariants = [];
+          p.altFire = undefined;
+        }
       }
 
       // Ignore movement/firing if still dead
@@ -192,8 +196,8 @@ export const levelUp = (world: World, playerId: string) => {
   player.xpToNext = xpForLevel(player.level + 1);
   if (player.level === 10) {
     if (!player.isGiant) {
-      player.maxHp += 50;
-      player.hp += 50;
+      player.maxHp += 25;
+      player.hp += 25;
     }
   } else if (player.level === 15) {
     player.maxSpeed = Math.max(50, player.maxSpeed - 80);
@@ -215,8 +219,8 @@ export const giveXP = (world: World, p: Player, value: number) => {
       p.maxSpeed = Math.max(50, p.maxSpeed - 25);
     } else if (p.level === 10) {
       if (!p.isGiant) {
-        p.maxHp += 50;
-        p.hp += 50;
+        p.maxHp += 25;
+        p.hp += 25;
       }
     } else if (p.level === 13) {
       p.maxSpeed = Math.max(50, p.maxSpeed - 25);

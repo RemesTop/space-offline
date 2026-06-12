@@ -31,7 +31,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
       p.y = pos.y;
       p.vx = 0;
       p.vy = 0;
-      
+
       // If it's a bot, reset all stats completely
       if (!p.socketId) {
         let maxPlayerLevel = 0;
@@ -40,7 +40,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
             maxPlayerLevel = player.level;
           }
         }
-        
+
         let giantChance = 0.05;
         if (maxPlayerLevel >= 13) giantChance = 0.3;
         p.isGiant = Math.random() < giantChance;
@@ -65,7 +65,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
 
 
         if (!p.isGiant && maxPlayerLevel >= 10) {
-          p.maxHp += 50;
+          p.maxHp += 25;
           for (let i = 0; i < 2; i++) {
             const upgradeRnd = Math.random();
             if (upgradeRnd < 0.25) {
@@ -84,7 +84,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
             }
           }
         }
-        
+
         updatePlayerRadius(p);
       }
 
