@@ -59,7 +59,11 @@ const BOT_NAMES = [
   "Sekoälyllinen",
   "I play this allday",
   "GLaDOS",
-  "You fix!"
+  "You fix!",
+  "Homer Simpson",
+  "Dart Vader",
+  "Tietorakenteet ja algoritmit",
+  "Serverihiiri"
 ];
 
 export const getRandomBotName = () => BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
@@ -109,7 +113,7 @@ export const spawnBot = (world: World): void => {
       player.maxHp += (targetLevel - 1) * 15;
       player.hp = player.maxHp;
     }
-    
+
     // Give them an appropriate number of upgrades
     const numUpgrades = targetLevel - 1;
     for (let i = 0; i < numUpgrades; i++) {
@@ -262,12 +266,12 @@ export const updateBots = (world: World, now: number): void => {
           const isAggressive = bot.personality === "Aggressive" || bot.personality === "Pro";
           const baseDangerRadius = isAggressive ? 80 : 200;
           const baseStrength = isAggressive ? 300 : 600;
-          
+
           const dangerRadius = well.radius + baseDangerRadius;
 
           if (dist < dangerRadius && dist > 1) {
             const strength = (dangerRadius - dist) / dangerRadius;
-            
+
             // Push away
             avoidX += (dx / dist) * Math.pow(strength, 0.5) * baseStrength * 0.7;
             avoidY += (dy / dist) * Math.pow(strength, 0.5) * baseStrength * 0.7;
@@ -309,18 +313,18 @@ export const updateBots = (world: World, now: number): void => {
         const target = nearbyPlayers[0].player;
         const fleeDx = player.x - target.x;
         const fleeDy = player.y - target.y;
-        
+
         // Add strafing to fleeing
         const strafeDir = Math.random() > 0.5 ? 1 : -1;
         const strafeX = -fleeDy * strafeDir * 0.7;
         const strafeY = fleeDx * strafeDir * 0.7;
-        
+
         desiredDx = fleeDx + strafeX;
         desiredDy = fleeDy + strafeY;
         bot.shouldFire = false;
 
         // Random deceleration to confuse aim (duration based)
-        if (!bot.decelUntil && Math.random() < 0.02) { 
+        if (!bot.decelUntil && Math.random() < 0.02) {
           bot.decelUntil = now + rndRange(200, 600);
         }
         if (bot.decelUntil && now < bot.decelUntil) {

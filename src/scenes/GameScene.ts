@@ -177,7 +177,7 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("SUN", new URL("../assets/planeetat/SUN.png", import.meta.url).toString());
     this.load.image("VENUS", new URL("../assets/planeetat/VENUS.png", import.meta.url).toString());
     this.load.image("BLACKHOLE", new URL("../assets/planeetat/BLACKHOLE.png", import.meta.url).toString());
-    
+
     // Preload rock
     this.load.image("rock", new URL("../assets/rock.png", import.meta.url).toString());
     // Preload rock
@@ -229,7 +229,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.wingsLevel = 0; // Reset wings level for new game
-    
+
     if (this.planetSprites) {
       this.planetSprites.forEach(s => s.destroy());
     }
@@ -254,7 +254,7 @@ export default class GameScene extends Phaser.Scene {
 
     // ALWAYS recreate gameplay display-object based managers (their GameObjects were destroyed on scene restart)
     this.parallax = new Parallax(this);
-    
+
     const resizeHandler = (gameSize: Phaser.Structs.Size) => {
       if (this.parallax) {
         this.parallax.resize(gameSize.width, gameSize.height);
@@ -304,12 +304,12 @@ export default class GameScene extends Phaser.Scene {
 
     if ((this.sound as any).locked) {
       this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
-        if (this.menuMusic && !this.menuMusic.isPlaying) { try { this.menuMusic.play(); } catch {} }
+        if (this.menuMusic && !this.menuMusic.isPlaying) { try { this.menuMusic.play(); } catch { } }
         fadeInMenu();
       });
-      if (this.menuMusic) { try { this.menuMusic.play(); } catch {} }
+      if (this.menuMusic) { try { this.menuMusic.play(); } catch { } }
     } else {
-      if (this.menuMusic) { try { if (!this.menuMusic.isPlaying) this.menuMusic.play(); } catch {} }
+      if (this.menuMusic) { try { if (!this.menuMusic.isPlaying) this.menuMusic.play(); } catch { } }
       fadeInMenu();
     }
 
@@ -369,7 +369,7 @@ export default class GameScene extends Phaser.Scene {
     // Mobile thrust: hold touch to thrust; release to stop
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (!isDesktop) this.isThrusting = true;
-      
+
       // Left mouse button for alternative fire (desktop only)
       if (isDesktop && pointer.leftButtonDown()) {
         this.altFireHeld = true;
@@ -380,7 +380,7 @@ export default class GameScene extends Phaser.Scene {
         this.isThrusting = false;
         this.thrust = { x: 0, y: 0 };
       }
-      
+
       // Release alternative fire when left mouse button is released
       if (isDesktop && pointer.leftButtonReleased()) {
         this.altFireHeld = false;
@@ -391,7 +391,7 @@ export default class GameScene extends Phaser.Scene {
     // Ask for player name (skip prompt on restart)
     let name = await this.namePromise;
     this.playerName = name;
-    
+
     // Now that the main menu is gone, initialize the game UI
     this.hud = new HUD();
     this.levelModal = new LevelUpModal();
@@ -458,7 +458,7 @@ export default class GameScene extends Phaser.Scene {
             this.gameOverModal.show(stats);
             // Stop sending inputs
             this.net.socket.disconnect();
-            
+
             this.gameOverModal.waitRespawn().then((respawn) => {
               if (respawn) {
                 this.handleRespawn();
@@ -469,8 +469,8 @@ export default class GameScene extends Phaser.Scene {
                   const player = this.net.world.players.get(this.net.youId);
                   if (player) player.pendingOffer = false;
                 }
-                try { this.menuMusic?.stop(); } catch {}
-                try { this.gameMusic?.stop(); } catch {}
+                try { this.menuMusic?.stop(); } catch { }
+                try { this.gameMusic?.stop(); } catch { }
                 this.scene.restart({ playerName: "" });
               }
             });
@@ -524,15 +524,15 @@ export default class GameScene extends Phaser.Scene {
           const cy = this.scale.height / 2;
           const sx = cx + (e.x - basePos.x);
           const sy = cy + (e.y - basePos.y);
-          
+
           const container = this.add.container(sx, sy).setDepth(1000);
-          
+
           const blastParams = { scale: 1.5, alpha: 0.8, color: 0xff44ff };
-          
+
           const blast = this.add.circle(0, 0, 100, blastParams.color, blastParams.alpha);
           blast.setBlendMode(Phaser.BlendModes.ADD);
           container.add(blast);
-          
+
           const innerBlast = this.add.circle(0, 0, 50, 0xffffff, 1);
           innerBlast.setBlendMode(Phaser.BlendModes.ADD);
           container.add(innerBlast);
@@ -561,16 +561,16 @@ export default class GameScene extends Phaser.Scene {
           const cy = this.scale.height / 2;
           const sx = cx + (e.x - youI.x);
           const sy = cy + (e.y - youI.y);
-          
+
           const container = this.add.container(sx, sy).setDepth(1000);
           container.setData('worldX', e.x);
           container.setData('worldY', e.y);
           this.explosionContainers.add(container);
-          
+
           const ring = this.add.circle(0, 0, 30, 0xffffff, 0.8)
             .setStrokeStyle(3, 0x8ac6ff);
           container.add(ring);
-          
+
           this.tweens.add({
             targets: ring,
             radius: 90,
@@ -582,7 +582,7 @@ export default class GameScene extends Phaser.Scene {
               this.explosionContainers.delete(container);
             }
           });
-          
+
           const dist = Math.hypot(e.x - youI.x, e.y - youI.y);
           if (dist < 1500) {
             const vol = Math.max(0.01, 1 - dist / 1500) * 0.6;
@@ -620,7 +620,7 @@ export default class GameScene extends Phaser.Scene {
     const gain = this.audioCtx.createGain();
     osc.connect(gain);
     gain.connect(this.audioCtx.destination);
-    
+
     const globalVol = this.sound.volume ?? 1.0;
 
     if (type === "plasma_explosion") {
@@ -747,8 +747,9 @@ export default class GameScene extends Phaser.Scene {
         if (isNew && e.ownerId !== this.net.youId && !this.gameEnded) {
           const dist = Math.hypot(e.x - youX, e.y - youY);
           if (dist < 1000) {
-            const vol = Math.max(0.01, 1 - dist / 1000) * 0.4;
-            this.playSynthSound("shoot", vol);
+            const vol = Math.max(0.01, 1 - dist / 1000) * 0.6;
+            const soundType = (e as any).isPlasma ? "plasma" : ((e as any).isLaser ? "laser" : "shoot");
+            this.playSynthSound(soundType, vol);
           }
         }
         bulletIds.add(e.id);
@@ -780,7 +781,7 @@ export default class GameScene extends Phaser.Scene {
           ship.setTint(tint);
           this.ships.set(e.id, ship);
         }
-        
+
         // Update ship textures if we have the stats
         const ship = this.ships.get(e.id);
         if (ship && e.maxHp && e.damage && e.maxSpeed && e.accel && e.magnetRadius && e.fireCooldownMs) {
@@ -809,7 +810,7 @@ export default class GameScene extends Phaser.Scene {
         rock.setDisplaySize(e.r * 2, e.r * 2);
       }
     }
-    
+
     for (const [id, ship] of this.ships) {
       if (!playerIds.has(id) && !this.dyingShips.has(id)) {
         ship.destroy();
@@ -905,8 +906,6 @@ export default class GameScene extends Phaser.Scene {
         this.playSynthSound(soundType, 1.0);
         this.lastShootSound = currentNow;
       }
-    } else {
-      this.lastShootSound = 0; // Reset so it fires immediately on next press
     }
 
     // Send input at ~40 Hz
@@ -976,7 +975,7 @@ export default class GameScene extends Phaser.Scene {
             // Default behavior before player lvl 8
             isDangerous = ((e as any).level && (e as any).level > 5);
           }
-          
+
           if (isDangerous) {
             ship.nameTag.setFontStyle("bold");
             ship.nameTag.setStroke("#000000", 4);
@@ -998,7 +997,7 @@ export default class GameScene extends Phaser.Scene {
               ship.setRotation(Math.atan2(e.vy, e.vx));
             }
           }
-          
+
           // Face their movement direction (guard tiny velocities)
           const spd = Math.hypot(e.vx, e.vy);
           if (spd > 0.001) {
@@ -1025,7 +1024,7 @@ export default class GameScene extends Phaser.Scene {
       if (myShip2) {
         myShip2.setPosition(cx, cy);
         myShip2.setRotation(this.heading);
-        
+
         // Handle invulnerability blinking for your own ship
         if (!this.dyingShips.has(this.net.youId!)) {
           if ((youI as any).isInvuln) {
@@ -1163,7 +1162,7 @@ export default class GameScene extends Phaser.Scene {
             let visualMultiplier = 1.0;
             if (well.type === "blackhole") visualMultiplier = 2.2;
             else if (well.texture === "SATURNUS") visualMultiplier = 1.8;
-            
+
             const targetDiameter = well.radius * 2 * visualMultiplier;
             const scale = targetDiameter / sprite.width;
             sprite.setScale(scale);
@@ -1175,10 +1174,10 @@ export default class GameScene extends Phaser.Scene {
           // Interpolated position using previous snapshot data (attached in onSnapshot)
           const anyW: any = well as any;
           const prevX = anyW._prevX ?? well.x;
-            const prevY = anyW._prevY ?? well.y;
-            const a = anyW._interpAlpha ?? 1;
-            const ix = prevX + (well.x - prevX) * a;
-            const iy = prevY + (well.y - prevY) * a;
+          const prevY = anyW._prevY ?? well.y;
+          const a = anyW._interpAlpha ?? 1;
+          const ix = prevX + (well.x - prevX) * a;
+          const iy = prevY + (well.y - prevY) * a;
           const sx = cx + (ix - youI.x);
           const sy = cy + (iy - youI.y);
           sprite.setPosition(sx, sy);
@@ -1206,14 +1205,14 @@ export default class GameScene extends Phaser.Scene {
     // Create explosion particles
     const particleCount = 12;
     const explosionRadius = 60;
-    
+
     for (let i = 0; i < particleCount; i++) {
       const angle = (i / particleCount) * Math.PI * 2;
       const distance = 20 + Math.random() * explosionRadius;
-      
+
       const particle = this.add.circle(0, 0, 3 + Math.random() * 4, 0xff6600);
       container.add(particle);
-      
+
       this.tweens.add({
         targets: particle,
         x: Math.cos(angle) * distance,
@@ -1228,7 +1227,7 @@ export default class GameScene extends Phaser.Scene {
     // Create bright flash
     const flash = this.add.circle(0, 0, 8, 0xffaa00);
     container.add(flash);
-    
+
     this.tweens.add({
       targets: flash,
       scale: 4,
@@ -1241,7 +1240,7 @@ export default class GameScene extends Phaser.Scene {
     const ring = this.add.circle(0, 0, 5, 0xffffff, 0)
       .setStrokeStyle(2, 0xff8800);
     container.add(ring);
-    
+
     this.tweens.add({
       targets: ring,
       radius: explosionRadius,
@@ -1329,8 +1328,8 @@ export default class GameScene extends Phaser.Scene {
       if (player) player.pendingOffer = false;
     }
     // Stop sounds to avoid overlap
-    try { this.menuMusic?.stop(); } catch {}
-    try { this.gameMusic?.stop(); } catch {}
+    try { this.menuMusic?.stop(); } catch { }
+    try { this.gameMusic?.stop(); } catch { }
     // Restart scene with stored player name
     this.scene.restart({ playerName: this.playerName });
   }
@@ -1344,7 +1343,7 @@ export default class GameScene extends Phaser.Scene {
         (this.gameMusic as any).setVolume?.(0);
         this.gameMusic.play();
         this.fadeSound(this.gameMusic, 0, 0.5, 900, false);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -1357,7 +1356,7 @@ export default class GameScene extends Phaser.Scene {
         (this.menuMusic as any).setVolume?.(0);
         this.menuMusic.play();
         this.fadeSound(this.menuMusic, 0, 0.5, 1200, false);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 

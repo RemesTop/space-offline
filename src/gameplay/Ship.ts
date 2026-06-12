@@ -132,9 +132,9 @@ export default class Ship {
   private _applyTint(color: number) {
     this.body.setTint(color);
     this.wings.setTint(color);
-    this.window.setTint(color);
     this.point.setTint(color);
     this.weapon.setTint(color);
+    this.window.setTint(color);
     
     if (this._specialVariants?.includes('Zero gravity') && color === this._originalTint) {
       this.thruster.setTint(0x00ffff);
@@ -231,11 +231,8 @@ export default class Ship {
     
     if (specialVariants?.includes('Bullet hell')) this.point.setTexture('raketti/pointspecial.png');
 
-    // Update tint for thruster in case special variant changed
+    // Update tint for thruster and window in case special variant changed
     this._applyTint(this._originalTint);
-    if (specialVariants?.includes('Plasma Cannon')) {
-      this.window.setTint(0xb388ff);
-    }
 
     // Scale ship based on hull level and giant status
     if (hullLevel !== undefined) {

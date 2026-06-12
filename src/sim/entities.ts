@@ -101,19 +101,19 @@ export const processInputs = (world: World, now: number) => {
   for (const p of world.players.values()) {
     while (p.inputQueue.length) {
       const f = p.inputQueue.shift()!;
-      
+
       // If player is dead but timer expired, respawn them when they send input
       if (p.hp <= 0 && p.deadUntil && now > p.deadUntil) {
         p.hp = p.maxHp;
         p.deadUntil = undefined;
-        
+
         // Reset position to edge
         const pos = randEdgeSpawn(world);
         p.x = pos.x;
         p.y = pos.y;
         p.vx = 0;
         p.vy = 0;
-        
+
         // Reset stats fully
         p.maxHp = PLAYER.baseHP + (p.isGiant ? 200 : 0);
         p.accel = PLAYER.baseAccel;
@@ -270,7 +270,7 @@ export const applyLevelChoice = (
         p.fireCooldownMs += 120;
         p.damage *= 2.5; // significantly increase damage since it no longer multi-hits
       } else if (choice.special === "Plasma Cannon") {
-        p.fireCooldownMs += 600;
+        p.fireCooldownMs += 610;
         // retroactively boost fire rate upgrades by 2x more (so total is 3x)
         const pastLvls = p.powerupLevels.FireRate;
         if (pastLvls > 0) {
@@ -333,7 +333,7 @@ export const applyLevelChoice = (
   } else if (choice.family === "Magnet" && choice.tier) {
     if (p.powerupLevels.Magnet < 4) {
       p.powerupLevels.Magnet++;
-      p.magnetRadius += 40;
+      p.magnetRadius += 45;
     }
   } else if (choice.family === "Wings" && choice.tier) {
     if (p.powerupLevels.Wings < 4) {
@@ -457,7 +457,7 @@ const rollChoices = (p: Player, specificLevel?: number): PowerupChoice[] => {
       family: "Magnet" as const,
       tier: nextLevel,
       label: `Magnet Lv${nextLevel + 1}`,
-      desc: "+30 Pickup Radius",
+      desc: "+45 Pickup Radius",
     });
   }
 

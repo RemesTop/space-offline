@@ -42,6 +42,7 @@ export const handleDeathsAndRespawn = (world: World, now: number) => {
         p.shield = 0;
         p.magnetRadius = PICKUPS.magnetBaseRadius;
         p.xp = 0;
+        p.score = 0;
         p.level = 1;
         p.xpToNext = xpForLevel(2);
         p.powerupLevels = { Hull: 0, Damage: 0, Engine: 0, FireRate: 0, Magnet: 0, Wings: 0 };
