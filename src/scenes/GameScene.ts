@@ -471,7 +471,7 @@ export default class GameScene extends Phaser.Scene {
                 }
                 try { this.menuMusic?.stop(); } catch {}
                 try { this.gameMusic?.stop(); } catch {}
-                this.scene.restart();
+                this.scene.restart({ playerName: "" });
               }
             });
           }, 1500); // 1.5s delay to watch explosion

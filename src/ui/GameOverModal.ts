@@ -35,9 +35,11 @@ export class GameOverModal {
 
     const respawnBtn = modal.querySelector('.go-respawn') as HTMLButtonElement;
     respawnBtn.onclick = () => this.finish(true);
+    respawnBtn.onpointerdown = () => this.finish(true);
     
     const menuBtn = modal.querySelector('.go-menu') as HTMLButtonElement;
     menuBtn.onclick = () => this.finish(false);
+    menuBtn.onpointerdown = () => this.finish(false);
   }
 
   private finish(respawn: boolean) {

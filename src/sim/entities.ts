@@ -13,17 +13,16 @@ export const addPlayer = (
   pos: { x: number; y: number },
   socketId: string,
 ): Player => {
-  // Check if any human player is level 10 or above
-  let hasHighLevelPlayer = false;
+  // Check max level among human players
+  let maxHumanLevel = 0;
   for (const player of world.players.values()) {
-    if (player.socketId && player.level >= 10) {
-      hasHighLevelPlayer = true;
-      break;
+    if (player.socketId && player.level > maxHumanLevel) {
+      maxHumanLevel = player.level;
     }
   }
 
   // Only bots (socketId is empty) can be giants
-  const giantChance = hasHighLevelPlayer ? 0.15 : 0.05;
+  const giantChance = maxHumanLevel >= 10 ? 0.15 : (maxHumanLevel >= 5 ? 0.05 : 0);
   const isGiant = (!socketId) && Math.random() < giantChance;
   const p: Player = {
     id,

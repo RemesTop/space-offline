@@ -14,9 +14,10 @@ export function spawnDeathPickups(world: World, player: Player) {
   const cy = Math.min(Math.max(player.y, 20), WORLD.h - 20);
 
   // Number of orbs: base 6 +/-1 plus tiny bonus for higher level
-  const base = 6 + Math.floor(Math.min(2, player.level / 10));
+  let base = 6 + Math.floor(Math.min(2, player.level / 10));
+  if (player.level >= 8) base += 4;
   const count = base + (Math.random() < 0.5 ? 0 : 1);
-  const radius = 40; // radial spread distance
+  const radius = player.level >= 8 ? 60 : 40; // radial spread distance
 
   for (let i = 0; i < count; i++) {
     const angle = (Math.PI * 2 * i) / count + rndRange(-0.2, 0.2);
@@ -27,11 +28,11 @@ export function spawnDeathPickups(world: World, player: Player) {
     // XP value: small random in existing xpValueRange bounds (favor smaller end)
     const min = PICKUPS.xpValueRange[0];
     const max = PICKUPS.xpValueRange[1];
-    const isWhite = player.isGiant || (!player.socketId && player.level >= 5);
-    const value = Math.floor(rndRange(min, (min + max) / 2)) * (isWhite ? 2 : 1);
+    const isRed = player.isGiant || player.level >= 8 || (!player.socketId && player.level >= 5);
+    const value = Math.floor(rndRange(min, (min + max) / 2)) * (isRed ? 2 : 1);
     const pu: Pickup = {
       id,
-      type: isWhite ? "xp-giant" : "xp",
+      type: isRed ? "xp-giant" : "xp",
       x,
       y,
       r: 10,
