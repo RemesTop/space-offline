@@ -36,7 +36,7 @@ const BOT_NAMES = [
   "R2-D2",
   "wALL-E",
   "The Iron Giant",
-  "Bender Bending Rodríguez",
+  "Bender Rodríguez",
   "Chatgpt 4o",
   "Gemini 3.1 pro",
   "Claude",
@@ -62,11 +62,18 @@ const BOT_NAMES = [
   "You fix!",
   "Homer Simpson",
   "Dart Vader",
-  "Tietorakenteet ja algoritmit",
-  "Serverihiiri"
+  "TRA",
+  "Serverihiiri",
+  "Pikku-Kalle",
+  "Gambina",
+  "Zombieship",
+  "Hätäapulainen",
+  "miinanpolkija",
+  "Eih",
+  "Optimus prime"
 ];
 
-const GIANT_PREFIXES = ["Big", "Senior", "Angry", "Crazy", "Drunk", "1337", "AI", "lil", "Ahne", "kirottu", "Pahis", "Evil", "Psycho", "Titan", "Se", "damn", "pro", "OP", "hitsin", "god", "anti"];
+const GIANT_PREFIXES = ["Big", "Senior", "Angry", "Crazy", "Drunk", "1337", "AI", "lil", "Ahne", "kirottu", "Pahis", "Evil", "Psycho", "Titan", "Se", "damn", "pro", "OP", "hitsin", "god", "anti", "Mr", "cool", "XL", "king"];
 
 export const getRandomBotName = (isGiant?: boolean) => {
   const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];

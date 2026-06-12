@@ -121,15 +121,17 @@ export const applyGravity = (world: World, dt: number) => {
     }
   }
   for (const b of world.bullets.values()) {
+    if (b.isLaser) continue;
     for (const w of world.wells) {
+      if (w.type !== "blackhole") continue;
       const dx = w.x - b.x;
       const dy = w.y - b.y;
       const d2 = dx * dx + dy * dy;
       if (d2 > w.influenceRadius * w.influenceRadius) continue;
       const force = Math.min((GRAVITY.G * w.mass) / (d2 + GRAVITY.epsilon), w.maxPull);
       const d = Math.sqrt(d2) || 1;
-      const ax = (dx / d) * force * 0.2;
-      const ay = (dy / d) * force * 0.2;
+      const ax = (dx / d) * force * 4.0;
+      const ay = (dy / d) * force * 4.0;
       b.vx += ax * dt;
       b.vy += ay * dt;
     }
